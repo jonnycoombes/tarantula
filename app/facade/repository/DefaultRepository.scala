@@ -24,7 +24,15 @@ import scala.concurrent.Future
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration, lifecycle: ApplicationLifecycle, cache: AsyncCacheApi) extends Repository {
 
+  /**
+   * The log used by the repository
+   */
   private val log = Logger(LogDefaults.RepositoryLog())
+
+  /**
+   * The current facade configuration
+   */
+  private val facadeConfig = FacadeConfig(configuration)
 
   log.debug("Initialising repository")
 

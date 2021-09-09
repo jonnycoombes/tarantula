@@ -1,9 +1,9 @@
 import com.typesafe.config.Config
-import play.api.ConfigLoader
+import play.api.{ConfigLoader, Configuration}
+
+import scala.annotation.tailrec
 
 package object facade {
-
-
 
   /**
    * The name of the section within the configuration file containing facade configuration information
@@ -24,14 +24,14 @@ package object facade {
     /**
      * @return the main logger name
      */
-    def MainLog() : String = {
+    def MainLog(): String = {
       MAIN_LOG
     }
 
     /**
      * @return the [[facade.repository.Repository]] logger name
      */
-    def RepositoryLog() : String = {
+    def RepositoryLog(): String = {
       REPOSITORY_LOG
     }
 
@@ -41,33 +41,32 @@ package object facade {
    * Object containing all the configuration defaults for the facade
    */
   object ConfigDefaults {
+
+    lazy val SystemIdentifier = "hyperion"
+
     /**
      * The current application version
      */
-    private val APP_VERSION = "1.0.1"
-
-    /**
-     * @return the current application version
-     */
-    def Version(): String = {
-      APP_VERSION
-    }
+     lazy val AppVersion = "1.0.1"
 
   }
 
   /**
    * The current configuration for the facade.  This is bound to the facade configuration settings section within the application.conf file
    */
-  case class FacadeConfig(version: String)
+  case class FacadeConfig(systemIdentifier: String, version: String)
 
+  /**
+   * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
+   * given [[play.api.Configuration]]
+   */
   object FacadeConfig {
-    implicit val configLoader:ConfigLoader[FacadeConfig]= new ConfigLoader[FacadeConfig]{
-      override def load(rootConfig: Config, path: String): FacadeConfig = {
-      val config = rootConfig.getConfig(FACADE_CONFIG_SECTION)
-        FacadeConfig(
-          version = ConfigDefaults.Version()
-        )
-      }
+    def apply(config: Configuration): FacadeConfig = {
+      val systemId = config.getOptional[String]("facade.system.identifier").getOrElse(ConfigDefaults.SystemIdentifier)
+      FacadeConfig(
+        systemIdentifier = systemId,
+        version = ConfigDefaults.AppVersion
+      )
     }
   }
 
