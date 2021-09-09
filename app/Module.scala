@@ -1,4 +1,6 @@
 import com.google.inject.AbstractModule
+import facade._
+import play.api.{Configuration, Environment, Logger}
 
 
 /**
@@ -11,10 +13,20 @@ import com.google.inject.AbstractModule
  * adding `play.modules.enabled` settings to the `application.conf`
  * configuration file.
  */
-class Module extends AbstractModule {
+class Module(environment: Environment, configuration : Configuration) extends AbstractModule {
 
+  /**
+   * The logger for the [[Module]]
+   */
+  private val log = Logger(MAIN_LOG)
+
+  /**
+   * Create and bind any singleton classes during application startup
+   */
   override def configure(): Unit = {
-
+    log.info("Initialising core facade module - instantiating singletons")
+    log.debug("Instantiating a repository instance as an eager singleton")
+    bind(classOf[facade.repository.DefaultRepository]).asEagerSingleton()
   }
 
 }
