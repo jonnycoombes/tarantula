@@ -1,6 +1,6 @@
 name := "jcs-facade"
  
-version := "1.0" 
+version := "1.0.1"
       
 lazy val `facade` = (project in file(".")).enablePlugins(PlayScala)
 

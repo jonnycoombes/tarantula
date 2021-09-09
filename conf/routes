@@ -1,7 +1,16 @@
 
 # Routes
-# Defines the routes for the facade REST interface
+# Defines the routes for the facade. All usable endpoints hang under the /api/v1 prefix
 # ~~~~
+
+# The default route just redirects to the relative ping endpoint
+GET / controllers.Default.redirect(to = "/api/v1/ping")
+
+# Just throw back 404s for the standard probe URLs
+GET /about controllers.Default.notFound
+GET /index controllers.Default.notFound
+
+# The ping route just sends back useful information about the status of the facade
 
 
 

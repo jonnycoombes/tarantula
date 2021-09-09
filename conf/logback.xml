@@ -25,6 +25,7 @@
     </appender>
 
     <logger name="play" level="INFO"/>
+    <logger name="akka" level="INFO" />
     <logger name="facade" level="DEBUG"/>
     <logger name="repository" level="DEBUG"/>
 

@@ -1,7 +1,7 @@
 package facade.repository
 
 import com.google.inject.{Inject, Singleton}
-import facade.REPOSITORY_LOG
+import facade._
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
@@ -24,7 +24,7 @@ import scala.concurrent.Future
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration, lifecycle: ApplicationLifecycle, cache: AsyncCacheApi) extends Repository {
 
-  private val log = Logger(REPOSITORY_LOG)
+  private val log = Logger(LogDefaults.RepositoryLog())
 
   log.debug("Initialising repository")
 
