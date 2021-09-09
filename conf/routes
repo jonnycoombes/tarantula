@@ -11,7 +11,7 @@ GET /about controllers.Default.notFound
 GET /index controllers.Default.notFound
 
 # The ping route just sends back useful information about the status of the facade
-
+GET /api/v1/ping    facade.controllers.PingController.ping()
 
 
       

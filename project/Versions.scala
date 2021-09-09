@@ -6,4 +6,8 @@ object Versions {
 
     lazy val ScalaVersion = """2.13.6"""
 
+  lazy val SqlJdbcVersion = "9.4.0.jre11"
+
+  lazy val SqlJdbcAuthVersion = "9.4.0.x64"
+
 }

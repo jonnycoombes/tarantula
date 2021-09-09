@@ -27,7 +27,9 @@
     <logger name="play" level="INFO"/>
     <logger name="akka" level="INFO" />
     <logger name="facade" level="DEBUG"/>
-    <logger name="repository" level="DEBUG"/>
+    <logger name="facade-repository" level="DEBUG"/>
+    <logger name="facade-timings" level="TRACE" />
+    <logger name="com.zaxxer.hikari.pool.HikariPool" level="INFO" />
 
     <!-- Off these ones as they are annoying, and anyway we manage configuration ourselves -->
     <logger name="com.avaje.ebean.config.PropertyMapLoader" level="OFF"/>

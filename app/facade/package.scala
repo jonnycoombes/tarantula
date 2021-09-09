@@ -1,39 +1,32 @@
-import com.typesafe.config.Config
-import play.api.{ConfigLoader, Configuration}
+import facade.db.DbContext
+import play.api.Configuration
 
-import scala.annotation.tailrec
-
+/**
+ * Top level package object for the facade package. Configuration related top level objects and classes go in here,
+ * along with anything related to logging/general cross-cutting concerns
+ */
 package object facade {
 
-  /**
-   * The name of the section within the configuration file containing facade configuration information
-   */
-  lazy val FACADE_CONFIG_SECTION = "facade"
-
-  object LogDefaults {
+  object LogNames {
     /**
      * The main facade log
      */
-    private val MAIN_LOG = "facade"
+    lazy val MainLogger = "facade"
 
     /**
      * A dedicated log for [[facade.repository.Repository]] implementations
      */
-    private val REPOSITORY_LOG = "repository"
+    lazy val RepositoryLogger = "facade-repository"
 
     /**
-     * @return the main logger name
+     * A dedicated log for [[DbContext]]
      */
-    def MainLog(): String = {
-      MAIN_LOG
-    }
+    lazy val DbContextLogger = "facade-db-context"
 
     /**
-     * @return the [[facade.repository.Repository]] logger name
+     * A dedicated log for timings information (if enabled)
      */
-    def RepositoryLog(): String = {
-      REPOSITORY_LOG
-    }
+    lazy val TimingsLogger = "facade-timings"
 
   }
 
@@ -47,7 +40,7 @@ package object facade {
     /**
      * The current application version
      */
-     lazy val AppVersion = "1.0.1"
+    lazy val AppVersion = "1.0.1"
 
   }
 
