@@ -1,5 +1,7 @@
 import com.google.inject.AbstractModule
 import facade._
+import facade.db.{DbExecutionContext, SqlServerDbContext}
+import facade.repository.DefaultRepository
 import play.api.{Configuration, Environment, Logger}
 
 
@@ -25,8 +27,15 @@ class Module(environment: Environment, configuration : Configuration) extends Ab
    */
   override def configure(): Unit = {
     log.info("Initialising core facade module - instantiating singletons")
-    log.debug("Instantiating a repository instance as an eager singleton")
-    bind(classOf[facade.repository.DefaultRepository]).asEagerSingleton()
+
+    log.info("Binding custom execution contexts")
+    bind(classOf[DbExecutionContext]).asEagerSingleton()
+
+    log.info("Binding DbContext as eager singleton")
+    bind(classOf[facade.db.DbContext]).to(classOf[SqlServerDbContext]).asEagerSingleton()
+    log.debug("Binding Repository as eager singleton")
+    bind(classOf[facade.repository.Repository]).to(classOf[DefaultRepository]).asEagerSingleton()
+
   }
 
 }

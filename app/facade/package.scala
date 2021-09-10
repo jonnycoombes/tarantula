@@ -33,7 +33,7 @@ package object facade {
   /**
    * Object containing all the configuration defaults for the facade
    */
-  object ConfigDefaults {
+  object SystemConstants {
 
     lazy val SystemIdentifier = "hyperion"
 
@@ -55,10 +55,10 @@ package object facade {
    */
   object FacadeConfig {
     def apply(config: Configuration): FacadeConfig = {
-      val systemId = config.getOptional[String]("facade.system.identifier").getOrElse(ConfigDefaults.SystemIdentifier)
+      val systemId = config.getOptional[String]("facade.system.identifier").getOrElse(SystemConstants.SystemIdentifier)
       FacadeConfig(
         systemIdentifier = systemId,
-        version = ConfigDefaults.AppVersion
+        version = SystemConstants.AppVersion
       )
     }
   }

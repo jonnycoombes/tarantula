@@ -4,7 +4,9 @@
  */
 object Versions {
 
-    lazy val ScalaVersion = """2.13.6"""
+  lazy val ScalaVersion = "2.13.6"
+
+  lazy val AnormVersion = "2.6.10"
 
   lazy val SqlJdbcVersion = "9.4.0.jre11"
 

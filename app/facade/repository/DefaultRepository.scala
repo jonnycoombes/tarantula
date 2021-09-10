@@ -1,6 +1,7 @@
 package facade.repository
 
 import facade._
+import facade.db.DbContext
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
@@ -22,7 +23,8 @@ import scala.concurrent.Future
  *
  */
 @Singleton
-class DefaultRepository @Inject()(configuration: Configuration, lifecycle: ApplicationLifecycle, cache: AsyncCacheApi) extends Repository {
+class DefaultRepository @Inject()(configuration: Configuration, lifecycle: ApplicationLifecycle, cache: AsyncCacheApi, dbContext : DbContext)
+  extends Repository {
 
   /**
    * The log used by the repository
@@ -42,5 +44,10 @@ class DefaultRepository @Inject()(configuration: Configuration, lifecycle: Appli
     })
   }
 
-
+  /**
+   * Gets the current repository state information
+   *
+   * @return an instance of [[RepositoryState]]
+   */
+  override def repositoryState(): Future[RepositoryState] = ???
 }

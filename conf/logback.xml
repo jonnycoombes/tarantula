@@ -25,10 +25,10 @@
     </appender>
 
     <logger name="play" level="INFO"/>
-    <logger name="akka" level="INFO" />
+    <logger name="akka" level="OFF" />
     <logger name="facade" level="DEBUG"/>
     <logger name="facade-repository" level="DEBUG"/>
-    <logger name="facade-timings" level="TRACE" />
+    <logger name="facade-timings" level="OFF" />
     <logger name="com.zaxxer.hikari.pool.HikariPool" level="INFO" />
 
     <!-- Off these ones as they are annoying, and anyway we manage configuration ourselves -->
