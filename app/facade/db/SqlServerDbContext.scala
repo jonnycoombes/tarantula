@@ -42,7 +42,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: Appl
    *
    * @return the current version of the underlying repository schema
    */
-  override def SchemaVersion(): Future[String] = {
+  override def schemaVersion(): Future[String] = {
     implicit val ec: ExecutionContext = dbExecutionContext
     Future {
       db.withConnection { implicit c =>

@@ -31,7 +31,7 @@ class PingController @Inject()(val cc : ControllerComponents,
    */
   def ping() : Action[AnyContent] = Action.async {
     val result = for {
-        v <- dbContext.SchemaVersion()
+        v <- dbContext.schemaVersion()
     } yield (v)
     result.map(v => {
         val state = RepositoryState(facadeVersion = facadeConfig.version,

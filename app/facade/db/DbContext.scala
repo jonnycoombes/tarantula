@@ -11,6 +11,6 @@ trait DbContext {
    * Gets the version of the underlying repository (OTCS) schema and returns it as a string
    * @return the current version of the underlying repository schema
    */
-  def SchemaVersion() : Future[String]
+  def schemaVersion() : Future[String]
 
 }
