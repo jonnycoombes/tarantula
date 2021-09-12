@@ -10,7 +10,7 @@ import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
 import javax.inject.{Inject, Singleton}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Future, blocking}
 
 /**
  * Default implementation of the [[DbContext]] trait
@@ -44,13 +44,15 @@ class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: Appl
    */
   override def schemaVersion(): Future[String] = {
     Future {
-      db.withConnection { implicit c =>
-        val version: Option[String] = {
-          schemaVersionSql as scalar[String].singleOpt
-        }
-        version match {
-          case Some(v) => v.replace("{", "").replace("}", "").replace(',', '.')
-          case _ => "Failed to get version"
+      blocking {
+        db.withConnection { implicit c =>
+          val version: Option[String] = {
+            schemaVersionSql as scalar[String].singleOpt
+          }
+          version match {
+            case Some(v) => v.replace("{", "").replace("}", "").replace(',', '.')
+            case _ => "Failed to get version"
+          }
         }
       }
     }
@@ -67,7 +69,6 @@ object SqlServerDbContext {
    * SQL to retrieve the underlying OTCS schema version information from the kini table
    */
   lazy val schemaVersionSql: SimpleSql[Row] = SQL"select IniValue from kini where IniKeyword = 'DatabaseVersion'"
-
 
 
 }

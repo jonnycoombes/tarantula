@@ -1,17 +1,16 @@
 package facade.cws
 
 import facade.{FacadeConfig, LogNames}
-import facade.db.DbContext
-import play.api.{Configuration, Logger}
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
+import play.api.{Configuration, Logger}
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future
 
 /**
  * Default implementation of the [[CwsProxy]] trait. Implements transparent caching of authentication material, and all necessary
- * plumbing to make CWS outcalls as painless as possible.
+ * plumbing to make CWS out-calls as painless as possible.
  * @param configuration current [[Configuration]] instance
  * @param lifecycle in order to add any lifecycle hooks
  * @param cache in case a cache is required
