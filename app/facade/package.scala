@@ -24,6 +24,11 @@ package object facade {
     lazy val DbContextLogger = "facade-db-context"
 
     /**
+     * A dedicated log for the Cws proxy layer
+     */
+    lazy val CwsProxyLogger = "facade-cws-proxy"
+
+    /**
      * A dedicated log for timings information (if enabled)
      */
     lazy val TimingsLogger = "facade-timings"

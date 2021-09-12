@@ -1,7 +1,8 @@
 import com.google.inject.AbstractModule
 import facade._
+import facade.cws.{CwsProxy, CwsProxyExecutionContext, DefaultCwsProxy}
 import facade.db.{DbExecutionContext, SqlServerDbContext}
-import facade.repository.DefaultRepository
+import facade.repository.{DefaultRepository, RepositoryExecutionContext}
 import play.api.{Configuration, Environment, Logger}
 
 
@@ -30,11 +31,15 @@ class Module(environment: Environment, configuration : Configuration) extends Ab
 
     log.info("Binding custom execution contexts")
     bind(classOf[DbExecutionContext]).asEagerSingleton()
+    bind(classOf[RepositoryExecutionContext]).asEagerSingleton()
+    bind(classOf[CwsProxyExecutionContext]).asEagerSingleton()
 
     log.info("Binding DbContext as eager singleton")
     bind(classOf[facade.db.DbContext]).to(classOf[SqlServerDbContext]).asEagerSingleton()
     log.debug("Binding Repository as eager singleton")
     bind(classOf[facade.repository.Repository]).to(classOf[DefaultRepository]).asEagerSingleton()
+    log.debug("Binding CWS proxy as eager singleton")
+    bind(classOf[facade.cws.CwsProxy]).to(classOf[DefaultCwsProxy]).asEagerSingleton()
 
   }
 

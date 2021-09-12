@@ -1,5 +1,6 @@
 package facade.repository
 
+import com.opentext.AdminService_Service
 import facade._
 import facade.db.DbContext
 import play.api.cache.AsyncCacheApi
@@ -23,7 +24,11 @@ import scala.concurrent.Future
  *
  */
 @Singleton
-class DefaultRepository @Inject()(configuration: Configuration, lifecycle: ApplicationLifecycle, cache: AsyncCacheApi, dbContext : DbContext)
+class DefaultRepository @Inject()(configuration: Configuration,
+                                  lifecycle: ApplicationLifecycle,
+                                  cache: AsyncCacheApi,
+                                  dbContext : DbContext,
+                                  implicit val repositoryExecutionContext: RepositoryExecutionContext)
   extends Repository {
 
   /**
@@ -40,7 +45,7 @@ class DefaultRepository @Inject()(configuration: Configuration, lifecycle: Appli
 
   lifecycle.addStopHook { () =>
     Future.successful({
-      log.debug("Cleaning up repository")
+      log.debug("Repository stop hook called")
     })
   }
 

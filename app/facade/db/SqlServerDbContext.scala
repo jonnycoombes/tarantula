@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
  */
 @Singleton
 class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: ApplicationLifecycle, cache: AsyncCacheApi, db: Database,
-                                   dbExecutionContext: DbExecutionContext)
+                                   implicit val dbExecutionContext: DbExecutionContext)
   extends
     DbContext {
 
@@ -33,7 +33,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: Appl
 
   lifecycle.addStopHook { () =>
     Future.successful({
-      log.debug("Cleaning up DB context")
+      log.debug("SqlServerDbContext stop hook called")
     })
   }
 
@@ -43,7 +43,6 @@ class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: Appl
    * @return the current version of the underlying repository schema
    */
   override def schemaVersion(): Future[String] = {
-    implicit val ec: ExecutionContext = dbExecutionContext
     Future {
       db.withConnection { implicit c =>
         val version: Option[String] = {
@@ -59,13 +58,16 @@ class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: Appl
 }
 
 /**
- * Companion object for [[SqlServerDbContext]]
+ * Companion object for [[SqlServerDbContext]]. Convenient place to store any Anorm parsers and SQL statement objects utilised within the
+ * class implementation of [[SqlServerDbContext]]
  */
 object SqlServerDbContext {
 
   /**
-   * Sql to retrieve the underlying OTCS schema version information
+   * SQL to retrieve the underlying OTCS schema version information from the kini table
    */
   lazy val schemaVersionSql: SimpleSql[Row] = SQL"select IniValue from kini where IniKeyword = 'DatabaseVersion'"
+
+
 
 }
