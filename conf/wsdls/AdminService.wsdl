@@ -1,4 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <wsdl:definitions name="AdminService" targetNamespace="urn:Core.service.livelink.opentext.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
                   xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" xmlns:tns="urn:Core.service.livelink.opentext.com"
-                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><wsdl:types><xsd:schema targetNamespace="urn:Core.service.livelink.opentext.com/Imports"><xsd:import schemaLocation="http://otcs-host/cws/AdminService.svc?xsd=xsd0" namespace="urn:Core.service.livelink.opentext.com"/><xsd:import schemaLocation="http://otcs-host/cws/AdminService.svc?xsd=xsd1" namespace="urn:api.ecm.opentext.com"/></xsd:schema></wsdl:types><wsdl:message name="GetDateFormatsRequest"><wsdl:part name="parameters" element="tns:GetDateFormats"/></wsdl:message><wsdl:message name="GetDateFormatsRequest_Headers"><wsdl:part name="OTAuthentication" element="q1:OTAuthentication" xmlns:q1="urn:api.ecm.opentext.com"/></wsdl:message><wsdl:message name="GetDateFormatsResponse"><wsdl:part name="parameters" element="tns:GetDateFormatsResponse"/></wsdl:message><wsdl:message name="GetDateFormatsResponse_Headers"><wsdl:part name="OTAuthentication" element="q2:OTAuthentication" xmlns:q2="urn:api.ecm.opentext.com"/></wsdl:message><wsdl:message name="GetServerInfoRequest"><wsdl:part name="parameters" element="tns:GetServerInfo"/></wsdl:message><wsdl:message name="GetServerInfoRequest_Headers"><wsdl:part name="OTAuthentication" element="q3:OTAuthentication" xmlns:q3="urn:api.ecm.opentext.com"/></wsdl:message><wsdl:message name="GetServerInfoResponse"><wsdl:part name="parameters" element="tns:GetServerInfoResponse"/></wsdl:message><wsdl:message name="GetServerInfoResponse_Headers"><wsdl:part name="OTAuthentication" element="q4:OTAuthentication" xmlns:q4="urn:api.ecm.opentext.com"/></wsdl:message><wsdl:message name="GetServiceListRequest"><wsdl:part name="parameters" element="tns:GetServiceList"/></wsdl:message><wsdl:message name="GetServiceListRequest_Headers"><wsdl:part name="OTAuthentication" element="q5:OTAuthentication" xmlns:q5="urn:api.ecm.opentext.com"/></wsdl:message><wsdl:message name="GetServiceListResponse"><wsdl:part name="parameters" element="tns:GetServiceListResponse"/></wsdl:message><wsdl:message name="GetServiceListResponse_Headers"><wsdl:part name="OTAuthentication" element="q6:OTAuthentication" xmlns:q6="urn:api.ecm.opentext.com"/></wsdl:message><wsdl:portType name="AdminService"><wsdl:operation name="GetDateFormats"><wsdl:input wsaw:Action="urn:Core.service.livelink.opentext.com/GetDateFormats" name="GetDateFormatsRequest" message="tns:GetDateFormatsRequest"/><wsdl:output wsaw:Action="urn:Core.service.livelink.opentext.com/AdminService/GetDateFormatsResponse" name="GetDateFormatsResponse" message="tns:GetDateFormatsResponse"/></wsdl:operation><wsdl:operation name="GetServerInfo"><wsdl:input wsaw:Action="urn:Core.service.livelink.opentext.com/GetServerInfo" name="GetServerInfoRequest" message="tns:GetServerInfoRequest"/><wsdl:output wsaw:Action="urn:Core.service.livelink.opentext.com/AdminService/GetServerInfoResponse" name="GetServerInfoResponse" message="tns:GetServerInfoResponse"/></wsdl:operation><wsdl:operation name="GetServiceList"><wsdl:input wsaw:Action="urn:Core.service.livelink.opentext.com/GetServiceList" name="GetServiceListRequest" message="tns:GetServiceListRequest"/><wsdl:output wsaw:Action="urn:Core.service.livelink.opentext.com/AdminService/GetServiceListResponse" name="GetServiceListResponse" message="tns:GetServiceListResponse"/></wsdl:operation></wsdl:portType><wsdl:binding name="BasicHttpBinding_AdminService" type="tns:AdminService"><soap:binding transport="http://schemas.xmlsoap.org/soap/http"/><wsdl:operation name="GetDateFormats"><soap:operation soapAction="urn:Core.service.livelink.opentext.com/GetDateFormats" style="document"/><wsdl:input name="GetDateFormatsRequest"><soap:header message="tns:GetDateFormatsRequest_Headers" part="OTAuthentication" use="literal"/><soap:body use="literal"/></wsdl:input><wsdl:output name="GetDateFormatsResponse"><soap:header message="tns:GetDateFormatsResponse_Headers" part="OTAuthentication" use="literal"/><soap:body use="literal"/></wsdl:output></wsdl:operation><wsdl:operation name="GetServerInfo"><soap:operation soapAction="urn:Core.service.livelink.opentext.com/GetServerInfo" style="document"/><wsdl:input name="GetServerInfoRequest"><soap:header message="tns:GetServerInfoRequest_Headers" part="OTAuthentication" use="literal"/><soap:body use="literal"/></wsdl:input><wsdl:output name="GetServerInfoResponse"><soap:header message="tns:GetServerInfoResponse_Headers" part="OTAuthentication" use="literal"/><soap:body use="literal"/></wsdl:output></wsdl:operation><wsdl:operation name="GetServiceList"><soap:operation soapAction="urn:Core.service.livelink.opentext.com/GetServiceList" style="document"/><wsdl:input name="GetServiceListRequest"><soap:header message="tns:GetServiceListRequest_Headers" part="OTAuthentication" use="literal"/><soap:body use="literal"/></wsdl:input><wsdl:output name="GetServiceListResponse"><soap:header message="tns:GetServiceListResponse_Headers" part="OTAuthentication" use="literal"/><soap:body use="literal"/></wsdl:output></wsdl:operation></wsdl:binding><wsdl:service name="AdminService"><wsdl:port name="BasicHttpBinding_AdminService" binding="tns:BasicHttpBinding_AdminService"><soap:address location="http://otcs-host/cws/AdminService.svc"/></wsdl:port></wsdl:service></wsdl:definitions>
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <wsdl:types>
+        <xsd:schema targetNamespace="urn:Core.service.livelink.opentext.com/Imports">
+            <xsd:import schemaLocation="http://otcs-host/cws/AdminService.svc?xsd=xsd0" namespace="urn:Core.service.livelink.opentext.com"/>
+            <xsd:import schemaLocation="http://otcs-host/cws/AdminService.svc?xsd=xsd1" namespace="urn:api.ecm.opentext.com"/>
+        </xsd:schema>
+    </wsdl:types>
+    <wsdl:message name="GetDateFormatsRequest">
+        <wsdl:part name="parameters" element="tns:GetDateFormats"/>
+    </wsdl:message>
+    <wsdl:message name="GetDateFormatsRequest_Headers">
+        <wsdl:part name="OTAuthentication" element="q1:OTAuthentication" xmlns:q1="urn:api.ecm.opentext.com"/>
+    </wsdl:message>
+    <wsdl:message name="GetDateFormatsResponse">
+        <wsdl:part name="parameters" element="tns:GetDateFormatsResponse"/>
+    </wsdl:message>
+    <wsdl:message name="GetDateFormatsResponse_Headers">
+        <wsdl:part name="OTAuthentication" element="q2:OTAuthentication" xmlns:q2="urn:api.ecm.opentext.com"/>
+    </wsdl:message>
+    <wsdl:message name="GetServerInfoRequest">
+        <wsdl:part name="parameters" element="tns:GetServerInfo"/>
+    </wsdl:message>
+    <wsdl:message name="GetServerInfoRequest_Headers">
+        <wsdl:part name="OTAuthentication" element="q3:OTAuthentication" xmlns:q3="urn:api.ecm.opentext.com"/>
+    </wsdl:message>
+    <wsdl:message name="GetServerInfoResponse">
+        <wsdl:part name="parameters" element="tns:GetServerInfoResponse"/>
+    </wsdl:message>
+    <wsdl:message name="GetServerInfoResponse_Headers">
+        <wsdl:part name="OTAuthentication" element="q4:OTAuthentication" xmlns:q4="urn:api.ecm.opentext.com"/>
+    </wsdl:message>
+    <wsdl:message name="GetServiceListRequest">
+        <wsdl:part name="parameters" element="tns:GetServiceList"/>
+    </wsdl:message>
+    <wsdl:message name="GetServiceListRequest_Headers">
+        <wsdl:part name="OTAuthentication" element="q5:OTAuthentication" xmlns:q5="urn:api.ecm.opentext.com"/>
+    </wsdl:message>
+    <wsdl:message name="GetServiceListResponse">
+        <wsdl:part name="parameters" element="tns:GetServiceListResponse"/>
+    </wsdl:message>
+    <wsdl:message name="GetServiceListResponse_Headers">
+        <wsdl:part name="OTAuthentication" element="q6:OTAuthentication" xmlns:q6="urn:api.ecm.opentext.com"/>
+    </wsdl:message>
+    <wsdl:portType name="AdminService">
+        <wsdl:operation name="GetDateFormats">
+            <wsdl:input wsaw:Action="urn:Core.service.livelink.opentext.com/GetDateFormats" name="GetDateFormatsRequest"
+                        message="tns:GetDateFormatsRequest"/>
+            <wsdl:output wsaw:Action="urn:Core.service.livelink.opentext.com/AdminService/GetDateFormatsResponse"
+                         name="GetDateFormatsResponse" message="tns:GetDateFormatsResponse"/>
+        </wsdl:operation>
+        <wsdl:operation name="GetServerInfo">
+            <wsdl:input wsaw:Action="urn:Core.service.livelink.opentext.com/GetServerInfo" name="GetServerInfoRequest"
+                        message="tns:GetServerInfoRequest"/>
+            <wsdl:output wsaw:Action="urn:Core.service.livelink.opentext.com/AdminService/GetServerInfoResponse"
+                         name="GetServerInfoResponse" message="tns:GetServerInfoResponse"/>
+        </wsdl:operation>
+        <wsdl:operation name="GetServiceList">
+            <wsdl:input wsaw:Action="urn:Core.service.livelink.opentext.com/GetServiceList" name="GetServiceListRequest"
+                        message="tns:GetServiceListRequest"/>
+            <wsdl:output wsaw:Action="urn:Core.service.livelink.opentext.com/AdminService/GetServiceListResponse"
+                         name="GetServiceListResponse" message="tns:GetServiceListResponse"/>
+        </wsdl:operation>
+    </wsdl:portType>
+    <wsdl:binding name="BasicHttpBinding_AdminService" type="tns:AdminService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="GetDateFormats">
+            <soap:operation soapAction="urn:Core.service.livelink.opentext.com/GetDateFormats" style="document"/>
+            <wsdl:input name="GetDateFormatsRequest">
+                <soap:header message="tns:GetDateFormatsRequest_Headers" part="OTAuthentication" use="literal"/>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output name="GetDateFormatsResponse">
+                <soap:header message="tns:GetDateFormatsResponse_Headers" part="OTAuthentication" use="literal"/>
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+        <wsdl:operation name="GetServerInfo">
+            <soap:operation soapAction="urn:Core.service.livelink.opentext.com/GetServerInfo" style="document"/>
+            <wsdl:input name="GetServerInfoRequest">
+                <soap:header message="tns:GetServerInfoRequest_Headers" part="OTAuthentication" use="literal"/>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output name="GetServerInfoResponse">
+                <soap:header message="tns:GetServerInfoResponse_Headers" part="OTAuthentication" use="literal"/>
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+        <wsdl:operation name="GetServiceList">
+            <soap:operation soapAction="urn:Core.service.livelink.opentext.com/GetServiceList" style="document"/>
+            <wsdl:input name="GetServiceListRequest">
+                <soap:header message="tns:GetServiceListRequest_Headers" part="OTAuthentication" use="literal"/>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output name="GetServiceListResponse">
+                <soap:header message="tns:GetServiceListResponse_Headers" part="OTAuthentication" use="literal"/>
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+    </wsdl:binding>
+    <wsdl:service name="AdminService">
+        <wsdl:port name="BasicHttpBinding_AdminService" binding="tns:BasicHttpBinding_AdminService">
+            <soap:address location="http://otcs-host/cws/AdminService.svc"/>
+        </wsdl:port>
+    </wsdl:service>
+</wsdl:definitions>

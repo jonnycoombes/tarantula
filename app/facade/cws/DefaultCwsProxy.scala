@@ -10,7 +10,8 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future
 
 /**
- * Default implementation of the [[CwsProxy]] trait
+ * Default implementation of the [[CwsProxy]] trait. Implements transparent caching of authentication material, and all necessary
+ * plumbing to make CWS outcalls as painless as possible.
  * @param configuration current [[Configuration]] instance
  * @param lifecycle in order to add any lifecycle hooks
  * @param cache in case a cache is required
@@ -28,6 +29,9 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * The current facade configuration
    */
   private val facadeConfig = FacadeConfig(configuration)
+
+  if (facadeConfig.cwsUser.isEmpty) log.warn("No CWS user name has been supplied, please check the system configuration")
+  if (facadeConfig.cwsPassword.isEmpty) log.warn("No CWS password has been supplied, please check the system configuration")
 
   lifecycle.addStopHook { () =>
     Future.successful({

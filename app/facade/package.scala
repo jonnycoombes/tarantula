@@ -40,6 +40,9 @@ package object facade {
    */
   object SystemConstants {
 
+    /**
+     * A default system identifier
+     */
     lazy val SystemIdentifier = "hyperion"
 
     /**
@@ -47,12 +50,26 @@ package object facade {
      */
     lazy val AppVersion = "1.0.1"
 
+    /**
+     * A default CWS user account
+     */
+    lazy val DefaultCwsUser = "Admin"
+
+    /**
+     * A default CWS password
+     */
+    lazy val DefaultCwsPassword = "livelink"
+
   }
 
   /**
-   * The current configuration for the facade.  This is bound to the facade configuration settings section within the application.conf file
+   * The current configuration for the facade.  This is bound to the facade configuration settings section within the application.conf file.
+   * The configuration fields are largely documented within the facade.conf file.
    */
-  case class FacadeConfig(systemIdentifier: String, version: String)
+  case class FacadeConfig(systemIdentifier: String,
+                          version: String,
+                          cwsUser : Option[String],
+                          cwsPassword : Option[String])
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
@@ -60,10 +77,11 @@ package object facade {
    */
   object FacadeConfig {
     def apply(config: Configuration): FacadeConfig = {
-      val systemId = config.getOptional[String]("facade.system.identifier").getOrElse(SystemConstants.SystemIdentifier)
       FacadeConfig(
-        systemIdentifier = systemId,
-        version = SystemConstants.AppVersion
+        systemIdentifier = config.getOptional[String]("facade.system.identifier").getOrElse(SystemConstants.SystemIdentifier),
+        version = SystemConstants.AppVersion,
+        cwsUser = config.getOptional[String]("facade.cws.user"),
+        cwsPassword = config.getOptional[String]("facade.cws.password")
       )
     }
   }
