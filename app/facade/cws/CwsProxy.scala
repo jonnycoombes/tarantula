@@ -1,6 +1,6 @@
 package facade.cws
 
-import com.opentext.OTAuthentication
+import com.opentext.cws.authentication.OTAuthentication
 
 import scala.concurrent.Future
 

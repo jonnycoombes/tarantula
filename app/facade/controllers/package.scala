@@ -25,7 +25,7 @@ package object controllers {
     /**
      * The standard exception value
      */
-    lazy val JsonException : JsObject =Json.obj("exception" -> true)
+    lazy val JsonException : JsObject =Json.obj("ok" -> false, "exception" -> true)
 
     /**
      * Wraps a given response in a success
@@ -68,7 +68,7 @@ package object controllers {
      * @param exception a [[play.api.libs.json.JsValue]] containing the payload for the response
      * @return a response [[play.api.libs.json.JsObject]]
      */
-    def exception(exception : JsValue) : JsObject ={
+    def exceptionFailure(exception : JsValue) : JsObject ={
       JsonException + ("response" -> exception)
     }
 
@@ -77,12 +77,22 @@ package object controllers {
      * @param exception the exception to serialise into the response
      * @return a response [[play.api.libs.json.JsObject]]
      */
-    def exception(exception : Exception) : JsObject = {
+    def exceptionFailure(exception : Exception) : JsObject = {
       JsonException ++ Json.obj(
         "message" -> exception.getMessage,
         "cause" -> exception.getCause.getMessage,
         "type" -> exception.getClass.toString
       )
+    }
+
+    /**
+     * Takes an instance of [[Throwable]] and then generates a Json response containing the deets
+     * @param throwable the [[Throwable]] to serialise
+     * @return a response [[JsObject]]
+     */
+    def throwableFailure(throwable: Throwable) : JsObject = {
+      val payload = Json.obj("message"->throwable.getMessage, "source" -> throwable.getClass.getSimpleName)
+      JsonException ++ payload
     }
 
   }

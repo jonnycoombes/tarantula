@@ -5,19 +5,21 @@ import facade.cws.CwsProxy
 import facade.db.DbContext
 import facade.repository.RepositoryState
 import facade.{FacadeConfig, LogNames}
+import org.apache.cxf.binding.soap.SoapFault
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
 import play.api.{Configuration, Logger}
 
 import javax.inject.{Inject, Singleton}
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 @Singleton
 class PingController @Inject()(val cc: ControllerComponents,
                                val system: ActorSystem,
                                val configuration: Configuration,
                                val dbContext: DbContext,
-                               val cwsProxy : CwsProxy,
+                               val cwsProxy: CwsProxy,
                                implicit val ec: ExecutionContext) extends AbstractController(cc) {
 
   /**
@@ -34,20 +36,20 @@ class PingController @Inject()(val cc: ControllerComponents,
    */
   def ping(): Action[AnyContent] = Action.async {
 
-    val result = for {
-      t <- cwsProxy.authenticate()
-      v <- dbContext.schemaVersion()
-    } yield (v)
+      val result = for {
+        t <- cwsProxy.authenticate()
+        v <- dbContext.schemaVersion()
+      } yield (v)
 
-    result.map {
-      case Right(version) => {
-        val state = RepositoryState(facadeVersion = facadeConfig.version,
-          systemIdentifier = facadeConfig.systemIdentifier,
-          schemaVersion = version)
-        Ok(ResponseHelpers.success(Json.toJson(state)))
+      result.map {
+        case Right(version) => {
+          val state = RepositoryState(facadeVersion = facadeConfig.version,
+            systemIdentifier = facadeConfig.systemIdentifier,
+            schemaVersion = version)
+          Ok(ResponseHelpers.success(Json.toJson(state)))
+        }
+        case Left(t) => Ok(ResponseHelpers.failure(JsString(t.getMessage)))
       }
-      case Left(t) => Ok(ResponseHelpers.failure(JsString(t.getMessage)))
-    }
   }
 
 }
