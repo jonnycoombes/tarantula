@@ -1,7 +1,7 @@
 package facade.repository
 
-import com.opentext.AdminService_Service
 import facade._
+import facade.cws.CwsProxy
 import facade.db.DbContext
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
@@ -28,6 +28,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
                                   cache: AsyncCacheApi,
                                   dbContext : DbContext,
+                                  cwsProxy: CwsProxy,
                                   implicit val repositoryExecutionContext: RepositoryExecutionContext)
   extends Repository {
 

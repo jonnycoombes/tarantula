@@ -1,5 +1,6 @@
 package facade.cws
 
+import com.opentext.{Authentication, Authentication_Service, OTAuthentication}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
@@ -11,14 +12,17 @@ import scala.concurrent.Future
 /**
  * Default implementation of the [[CwsProxy]] trait. Implements transparent caching of authentication material, and all necessary
  * plumbing to make CWS out-calls as painless as possible.
+ *
  * @param configuration current [[Configuration]] instance
- * @param lifecycle in order to add any lifecycle hooks
- * @param cache in case a cache is required
+ * @param lifecycle     in order to add any lifecycle hooks
+ * @param cache         in case a cache is required
  */
 @Singleton
 class DefaultCwsProxy @Inject()(configuration: Configuration,
-                               lifecycle: ApplicationLifecycle,
-                               cache: AsyncCacheApi, implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy {
+                                lifecycle: ApplicationLifecycle,
+                                cache: AsyncCacheApi,
+                                authenticationService: Authentication_Service,
+                                implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy {
 
   /**
    * The log used by the repository
@@ -38,7 +42,15 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
     })
   }
 
-
-
+  def authenticate(): Future[CwsProxyResult[OTAuthentication]] = {
+    val client = authenticationService.basicHttpBindingAuthentication
+    val user = facadeConfig.cwsUser.getOrElse("Admin")
+    val password = facadeConfig.cwsPassword.getOrElse("livelink")
+    client.authenticateUser(user, password).map(s => {
+      val auth = new OTAuthentication()
+      auth.setAuthenticationToken(s)
+      Right(auth)
+    })
+  }
 
 }

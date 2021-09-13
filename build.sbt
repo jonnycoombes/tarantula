@@ -17,4 +17,5 @@ libraryDependencies +=  "org.playframework.anorm" %% "anorm" % Versions.AnormVer
 
 // WSDL related settings for SOAP bindings
 WsdlKeys.packageName := Some("com.opentext")
-WsdlKeys.wsdlToCodeArgs += "-autoNameResolution"
+//WsdlKeys.wsdlToCodeArgs += "-dns"
+//WsdlKeys.wsdlToCodeArgs += "-autoNameResolution"

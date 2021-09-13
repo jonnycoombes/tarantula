@@ -7,6 +7,13 @@ import scala.concurrent.Future
  * top of a merged OTCS/SQL API layer.
  */
 trait Repository {
+
+  /**
+   * Type alias for results
+   * @tparam T the expected success type. Convention is that a successful computation places result in the Right.
+   */
+  type RepositoryResult[T] = Either[Throwable, T]
+
   /**
    * Gets the current repository state information
    *

@@ -11,6 +11,8 @@ import play.api.{Configuration, Logger}
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{Future, blocking}
+import scala.util.control.Exception.allCatch
+import scala.util.{Failure, Success, Try}
 
 /**
  * Default implementation of the [[DbContext]] trait
@@ -42,17 +44,16 @@ class SqlServerDbContext @Inject()(configuration: Configuration, lifecycle: Appl
    *
    * @return the current version of the underlying repository schema
    */
-  override def schemaVersion(): Future[String] = {
+  override def schemaVersion(): Future[DbContextResult[String]] = {
     Future {
       blocking {
-        db.withConnection { implicit c =>
-          val version: Option[String] = {
-            schemaVersionSql as scalar[String].singleOpt
+        allCatch.withTry {
+          db.withConnection { implicit c =>
+            schemaVersionSql as scalar[String].single
           }
-          version match {
-            case Some(v) => v.replace("{", "").replace("}", "").replace(',', '.')
-            case _ => "Failed to get version"
-          }
+        } match {
+          case Success(value) => Right(value)
+          case Failure(ex) => Left(ex)
         }
       }
     }

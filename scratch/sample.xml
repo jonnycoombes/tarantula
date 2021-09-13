@@ -1,0 +1,9 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <ns2:AuthenticateUser xmlns="urn:DocMan.service.livelink.opentext.com" xmlns:ns2="urn:Core.service.livelink.opentext.com"
+                              xmlns:ns3="urn:api.ecm.opentext.com">
+            <userName>Admin</userName>
+            <userPassword>livelink</userPassword>
+        </ns2:AuthenticateUser>
+    </soap:Body>
+</soap:Envelope>
