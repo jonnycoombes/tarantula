@@ -20,14 +20,14 @@ import scala.concurrent.Future
  * @constructor instantiates a new instance of the repository
  * @param configuration the current application [[Configuration]]
  * @param lifecycle     a lifecycle hook so that any shutdown clean-up can be carried out
- * @param cache the application level cache (default backing implementation is ehcache)
+ * @param cache         the application level cache (default backing implementation is ehcache)
  *
  */
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
                                   cache: AsyncCacheApi,
-                                  dbContext : DbContext,
+                                  dbContext: DbContext,
                                   cwsProxy: CwsProxy,
                                   implicit val repositoryExecutionContext: RepositoryExecutionContext)
   extends Repository {
@@ -55,5 +55,29 @@ class DefaultRepository @Inject()(configuration: Configuration,
    *
    * @return an instance of [[RepositoryState]]
    */
-  override def repositoryState(): Future[RepositoryState] = ???
+  //noinspection DuplicatedCode
+  override def repositoryState(): Future[RepositoryState] = {
+
+    val cwsServerInfo = cwsProxy.serverInfo()
+    val dbSchemaVersion = dbContext.schemaVersion()
+    val serviceHealth = for {
+      a <- cwsServerInfo
+      b <- dbSchemaVersion
+    } yield (a, b)
+
+    serviceHealth map { s =>
+      val serverInfo = s._1
+      val schemaVersion = s._2
+      if (serverInfo.isRight && schemaVersion.isRight){
+        RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get)
+      }else if (serverInfo.isRight && schemaVersion.isLeft) {
+        RepositoryState(facadeConfig, serverInfo.toOption.get)
+      }else if (serverInfo.isLeft && schemaVersion.isLeft){
+        RepositoryState(facadeConfig)
+      }else{
+        RepositoryState(facadeConfig, schemaVersion.toOption.get)
+      }
+    }
+
+  }
 }

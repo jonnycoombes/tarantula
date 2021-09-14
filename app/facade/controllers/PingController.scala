@@ -3,9 +3,9 @@ package facade.controllers
 import akka.actor.ActorSystem
 import facade.cws.CwsProxy
 import facade.db.DbContext
-import facade.repository.RepositoryState
+import facade.repository.Repository
 import facade.{FacadeConfig, LogNames}
-import play.api.libs.json.{JsString, Json}
+import play.api.libs.json.Json
 import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
 import play.api.{Configuration, Logger}
 
@@ -16,6 +16,7 @@ import scala.concurrent.ExecutionContext
 class PingController @Inject()(val cc: ControllerComponents,
                                val system: ActorSystem,
                                val configuration: Configuration,
+                               val repository : Repository,
                                val dbContext: DbContext,
                                val cwsProxy: CwsProxy,
                                implicit val ec: ExecutionContext) extends AbstractController(cc) {
@@ -33,24 +34,11 @@ class PingController @Inject()(val cc: ControllerComponents,
    * @return
    */
   def ping(): Action[AnyContent] = Action.async {
-
-      val result = for {
-        t <- cwsProxy.serverInfo()
-        v <- dbContext.schemaVersion()
-      } yield (t)
-
-      result.map {
-        case Right(version) => {
-
-          val state = RepositoryState(facadeVersion = facadeConfig.version,
-            systemIdentifier = facadeConfig.systemIdentifier,
-            serverVersion = version.getServerVersion,
-            serverLanguage = version.getLanguageCode,
-            serverDateTime = version.getServerDateTime.toString)
-          Ok(ResponseHelpers.success(Json.toJson(state)))
-        }
-        case Left(t) => Ok(ResponseHelpers.failure(JsString(t.getMessage)))
-      }
+    val future = repository.repositoryState()
+    future map { s =>
+      Ok(ResponseHelpers.success(Json.toJson(s)))
+    } recover  { t =>
+      Ok(ResponseHelpers.throwableFailure(t))
+    }
   }
-
 }

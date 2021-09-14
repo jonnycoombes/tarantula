@@ -20,4 +20,5 @@ trait Repository {
    * @return an instance of [[RepositoryState]]
    */
   def repositoryState(): Future[RepositoryState]
+
 }

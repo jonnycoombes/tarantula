@@ -1,13 +1,16 @@
 package facade
 
 import akka.actor.ActorSystem
+import com.opentext.cws.admin.ServerInfo
+import facade.repository.Status.RepositoryStatus
 import play.api.libs.concurrent.CustomExecutionContext
 import play.api.libs.json.{JsValue, Json, Writes}
 
 import javax.inject.{Inject, Singleton}
+import scala.language.implicitConversions
 
 /**
- * Top level package object for the repository package.  Statics, helpers etc...go here
+ * Top level package object for the repository package.  Statics, types, helpers etc...go here
  */
 package object repository {
 
@@ -19,17 +22,63 @@ package object repository {
   @Singleton
   class RepositoryExecutionContext @Inject()(system : ActorSystem) extends CustomExecutionContext(system, "facade.repository.dispatcher")
 
-  /**
-   * Case class used to contain the current repository state. (Returned by calls to the ping endpoint)
-   * @param facadeVersion the current running version of the facade
-   * @param systemIdentifier the user-defined system identifier for the running instance of the facade
-   * @param schemaVersion the underlying OTCS schema information (if available)
-   */
-  case class RepositoryState (facadeVersion: String = SystemConstants.AppVersion,
+
+  case class RepositoryState (version: String,
+                              schemaVersion : Option[String],
                               systemIdentifier : String,
-                              serverVersion : String,
-                              serverLanguage : String,
-                              serverDateTime : String)
+                              status : RepositoryStatus = Status.Ok,
+                              message : Option[String] = None,
+                              serverVersion : Option[String] = None,
+                              serverLanguage : Option[String] = None,
+                              serverDateTime : Option[String] = None)
+
+  object RepositoryState {
+    def apply(config : FacadeConfig, serverInfo : ServerInfo, schemaVersion : String): RepositoryState ={
+      RepositoryState(version = config.version,
+        schemaVersion = Some(schemaVersion),
+        systemIdentifier = config.version,
+        serverVersion= Some(serverInfo.getServerVersion),
+        serverLanguage = Some(serverInfo.getLanguageCode),
+        serverDateTime = Some(serverInfo.getServerDateTime.toString))
+    }
+    def apply(config: FacadeConfig, serverInfo : ServerInfo) : RepositoryState ={
+      RepositoryState(version = config.version,
+        schemaVersion = None,
+        status = Status.NoDb,
+        message = Some("No DB schema information available - check RDBMS service status"),
+        systemIdentifier = config.systemIdentifier,
+        serverVersion = Some(serverInfo.getServerVersion),
+        serverLanguage = Some(serverInfo.getLanguageCode),
+        serverDateTime = Some(serverInfo.getServerDateTime.toString))
+    }
+    def apply(config: FacadeConfig, schemaVersion: String) : RepositoryState = {
+      RepositoryState(version = config.version,
+        schemaVersion = Some(schemaVersion),
+        status = Status.NoOtcs,
+        message = Some("No OTCS server information available - check OTCS service status"),
+        systemIdentifier = config.systemIdentifier)
+    }
+    def apply(config : FacadeConfig, t : Throwable): RepositoryState = {
+      RepositoryState(version = config.version,
+        schemaVersion = None,
+        status = Status.Exception,
+        message = Some(t.getMessage),
+        systemIdentifier = config.systemIdentifier)
+    }
+
+    def apply(config : FacadeConfig) : RepositoryState = {
+      RepositoryState(version = config.version,
+        schemaVersion = None,
+        status = Status.NoOtcsOrDb,
+        message = Some("No DB or OTCS information available - check backend service statuses"),
+        systemIdentifier = config.systemIdentifier)
+    }
+  }
+
+  object Status extends Enumeration {
+    type RepositoryStatus = Value
+    val Ok, Exception, NoDb, NoOtcs, NoOtcsOrDb  = Value
+  }
 
   /**
    * A [[Writes]] implementation for the serialisation of [[RepositoryState]]
@@ -37,12 +86,39 @@ package object repository {
   implicit val repositoryStateWrites: Writes[RepositoryState] = new Writes[RepositoryState]{
     override def writes(o: RepositoryState): JsValue ={
       Json.obj(
+        "version" -> SystemConstants.AppVersion,
+        "schemaVersion" -> o.schemaVersion.fold("Unknown")(s => s),
         "systemIdentifier" -> o.systemIdentifier,
-        "facadeVersion" -> SystemConstants.AppVersion,
-        "otcsServerVersion" -> o.serverVersion,
-        "otcsServerLanguage" -> o.serverLanguage,
-        "otcsServerDateTime" -> o.serverDateTime
+        "status" -> o.status.toString,
+        "message" -> o.message.fold("Nothing to report")(s => s),
+        "otcsServerVersion" -> o.serverVersion.fold("Unknown")(s => s),
+        "otcsServerLanguage" -> o.serverLanguage.fold("Unknown")(s => s),
+        "otcsServerDateTime" -> o.serverDateTime.fold("Unknown")(s => s)
       )
     }
   }
+
+  /**
+   * A repository path is just a (non-empty) list of path elements, parsed from a string such as "/Enterprise/Business Workspaces/100232323"
+   */
+  type RepositoryPath = List[String]
+
+  /**
+   * The repository path separation character
+   */
+  lazy val RepositoryPathSeparator = '/'
+
+  /**
+   * Implicit conversion to move between a string and [[RepositoryPath]]
+   * @param s a string of the form A/B/C/etc
+   * @return a [[RepositoryPath]]
+   */
+  implicit def stringToRepositoryPath(s : String) : RepositoryPath = {
+    if (s.isEmpty) {
+        List.empty[String]
+    } else {
+      s.split(RepositoryPathSeparator).toList
+    }
+  }
+
 }

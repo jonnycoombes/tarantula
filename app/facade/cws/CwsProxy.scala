@@ -32,3 +32,5 @@ trait CwsProxy {
   def serverInfo() : Future[CwsProxyResult[ServerInfo]]
 
 }
+
+case class CwsProxyException(message : String) extends Exception(message)

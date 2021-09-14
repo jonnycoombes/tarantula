@@ -11,7 +11,6 @@ import play.api.{Configuration, Logger}
 import java.util
 import javax.inject.{Inject, Singleton}
 import javax.xml.namespace.QName
-import javax.xml.soap.SOAPHeaderElement
 import javax.xml.ws.handler.MessageContext
 import javax.xml.ws.handler.soap.{SOAPHandler, SOAPMessageContext}
 import scala.concurrent.duration.DurationInt
@@ -33,7 +32,8 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
                                 cache: AsyncCacheApi,
                                 authenticationService: Authentication_Service,
                                 adminService: AdminService_Service,
-                                implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy with SOAPHandler[SOAPMessageContext] {
+                                implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy with
+  SOAPHandler[SOAPMessageContext] {
 
   /**
    * The log used by the repository
@@ -81,25 +81,39 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
 
   /**
    * Looks in the cache for a current token, or if not present, will authenticate in order to get a new token
+   *
    * @return a valid authentication token
    */
-  private def resolveToken() : String = {
+  private def resolveToken(): String = {
     val cachedToken = Await.result(cache.get("cachedToken"), 5 seconds)
     if (cachedToken.isDefined) {
       log.trace("Found cached authentication token")
       cachedToken.get.asInstanceOf[String]
-    }else {
-      val result = Await.result(authenticate(), 5 seconds)
-      result match {
-        case Right(s) => {
-          val token= s.getAuthenticationToken
-          log.info("Caching authentication token")
-          Await.result(cache.set("cachedToken", token, 1200 seconds), 5 seconds)
-          token
+    } else {
+      try {
+        val result = Await.result(authenticate(), 5 seconds)
+        result match {
+          case Right(s) => {
+            val token = s.getAuthenticationToken
+            log.info("Caching authentication token")
+            Await.result(cache.set("cachedToken", token, 1200 seconds), 5 seconds)
+            token
+          }
+          case Left(ex) => {
+            log.warn("Failed to obtain an authentication token")
+            throw ex
+          }
         }
-        case Left(ex) => {
-          log.warn("Failed to obtain an authentication token")
-          throw ex
+      } catch {
+        case ex : Exception => {
+          log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
+          log.error("Unable to perform authentication against OTCS - check service status")
+          throw CwsProxyException("OTCS authentication failed. Check service status & config")
+        }
+        case ex : Throwable => {
+          log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
+          log.error("Unable to perform authentication against CWS - check service status")
+          throw CwsProxyException("OTCS authentication failed. Check service status & config")
         }
       }
     }
@@ -107,38 +121,50 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
 
   /**
    * Implementation of [[SOAPHandler]]
+   *
    * @return
    */
   override def getHeaders: util.Set[QName] = null
 
   /**
    * Implementation of [[SOAPHandler]]
+   *
    * @param context the inbound/outbound [[SOAPMessageContext]]
    * @return will always return true in order make sure that the message is processed by downstream components
    */
   override def handleMessage(context: SOAPMessageContext): Boolean = {
     val outbound = context.get(MessageContext.MESSAGE_OUTBOUND_PROPERTY).asInstanceOf[java.lang.Boolean]
     val message = context.getMessage
-    if (outbound){
-      log.trace("Processing outbound message")
-      val header = message.getSOAPPart.getEnvelope.addHeader()
-      val authElement = header.addHeaderElement(new QName(EcmApiNamespace, "OTAuthentication"))
-      val tokenElement = authElement.addChildElement(new QName(EcmApiNamespace, "AuthenticationToken"))
-      tokenElement.addTextNode(resolveToken())
-    }else{
+    if (outbound) {
+      try {
+        log.trace("Processing outbound message")
+        val header = message.getSOAPPart.getEnvelope.addHeader()
+        val authElement = header.addHeaderElement(new QName(EcmApiNamespace, "OTAuthentication"))
+        val tokenElement = authElement.addChildElement(new QName(EcmApiNamespace, "AuthenticationToken"))
+        tokenElement.addTextNode(resolveToken())
+        true
+      }catch{
+        case ex : CwsProxyException => {
+          log.error("Unable to inject required outbound authentication token")
+          log.error("Check previous errors relating to OTCS authentication")
+          true
+        }
+      }
+    } else {
       log.trace("Processing inbound message")
       val headerElements = message.getSOAPPart.getEnvelope.getHeader.examineAllHeaderElements
-      for(element <- headerElements.asScala) {
-          if (element.getElementName.getLocalName == OtAuthenticationHeaderName){
-              //Await.result(cache.set("cachedToken", element.getFirstChild.getFirstChild.getNodeValue, 15 seconds), 5 seconds)
-          }
+      for (element <- headerElements.asScala) {
+        if (element.getElementName.getLocalName == OtAuthenticationHeaderName) {
+          //Await.result(cache.set("cachedToken", element.getFirstChild.getFirstChild.getNodeValue, 15 seconds), 5 seconds)
+        }
       }
+      true
     }
-    true
   }
 
   /**
    * Implementation of [[SOAPHandler]]
+   *
    * @param context the inbound/outbound [[SOAPMessageContext]]
    * @return just logs and then returns true in order to allow for further processing
    */
@@ -149,6 +175,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
 
   /**
    * Implementation of [[SOAPHandler]]
+   *
    * @param context the inbound/outbound [[SOAPMessageContext]]
    */
   override def close(context: MessageContext): Unit = ()
@@ -160,9 +187,14 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    */
   override def serverInfo(): Future[CwsProxyResult[ServerInfo]] = {
     blocking {
-      adminClient.getServerInfo
-        .map(s => Right(s))
-        .recover({ case t => log.error(t.getMessage); throw t })
+      adminClient.getServerInfo map { info: ServerInfo =>
+        Right(info)
+      } recover {
+        case t => {
+          log.error(t.getMessage)
+          Left(t)
+        }
+      }
     }
   }
 }
@@ -189,10 +221,11 @@ object DefaultCwsProxy {
 
   /**
    * Helper function that just takes a token and wraps it as an instance of [[OTAuthentication]]
+   *
    * @param token the token to be wrapped
    * @return a new instance of [[OTAuthentication]]
    */
-  private def wrapToken(token : String) : OTAuthentication = {
+  private def wrapToken(token: String): OTAuthentication = {
     val auth = new OTAuthentication()
     auth.setAuthenticationToken(token)
     auth
