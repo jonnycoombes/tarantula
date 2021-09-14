@@ -18,5 +18,14 @@ package object db {
   @Singleton
   class DbExecutionContext @Inject()(system : ActorSystem) extends CustomExecutionContext(system, "facade.sql.dispatcher")
 
+  /**
+   * Case class for containing core node database details (taken from DTreeCore)
+   * @param parentId the parent id
+   * @param dataId the node data id
+   * @param name the name of the node
+   * @param subType the subtype of the node
+   * @param originDataId the origin data id for an alias
+   */
+  case class NodeCoreDetails(parentId : Long, dataId : Long, name : String, subType : Long, originDataId : Long)
 
 }

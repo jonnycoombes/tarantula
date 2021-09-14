@@ -80,4 +80,17 @@ class DefaultRepository @Inject()(configuration: Configuration,
     }
 
   }
+
+  /**
+   * Takes a path and attempts to resolve it to an underlying repository id (in the case of OTCS, this will be a DataID)
+   *
+   * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
+   */
+  override def resolvePath(path: RepositoryPath): Future[RepositoryResult[Long]] = {
+    val nodeId= dbContext.queryNodeDetailsByName(None, path.head)
+    nodeId map {
+      case Right(id) => Right(id)
+      case Left(t) => Left(t)
+    }
+  }
 }

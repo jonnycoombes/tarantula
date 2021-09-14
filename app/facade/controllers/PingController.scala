@@ -17,8 +17,6 @@ class PingController @Inject()(val cc: ControllerComponents,
                                val system: ActorSystem,
                                val configuration: Configuration,
                                val repository : Repository,
-                               val dbContext: DbContext,
-                               val cwsProxy: CwsProxy,
                                implicit val ec: ExecutionContext) extends AbstractController(cc) {
 
   /**

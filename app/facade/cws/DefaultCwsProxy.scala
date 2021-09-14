@@ -4,7 +4,7 @@ import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
-import play.api.cache.AsyncCacheApi
+import play.api.cache.{AsyncCacheApi, NamedCache}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
@@ -29,7 +29,7 @@ import scala.language.postfixOps
 @Singleton
 class DefaultCwsProxy @Inject()(configuration: Configuration,
                                 lifecycle: ApplicationLifecycle,
-                                cache: AsyncCacheApi,
+                                @NamedCache("token-cache") cache: AsyncCacheApi,
                                 authenticationService: Authentication_Service,
                                 adminService: AdminService_Service,
                                 implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy with
@@ -108,12 +108,12 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         case ex : Exception => {
           log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
           log.error("Unable to perform authentication against OTCS - check service status")
-          throw CwsProxyException("OTCS authentication failed. Check service status & config")
+          throw new Throwable("OTCS authentication failed. Check service status & config")
         }
         case ex : Throwable => {
           log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
           log.error("Unable to perform authentication against CWS - check service status")
-          throw CwsProxyException("OTCS authentication failed. Check service status & config")
+          throw new Throwable("OTCS authentication failed. Check service status & config")
         }
       }
     }
@@ -144,7 +144,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         tokenElement.addTextNode(resolveToken())
         true
       }catch{
-        case ex : CwsProxyException => {
+        case t : Throwable => {
           log.error("Unable to inject required outbound authentication token")
           log.error("Check previous errors relating to OTCS authentication")
           true

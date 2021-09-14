@@ -36,7 +36,7 @@ package object repository {
     def apply(config : FacadeConfig, serverInfo : ServerInfo, schemaVersion : String): RepositoryState ={
       RepositoryState(version = config.version,
         schemaVersion = Some(schemaVersion),
-        systemIdentifier = config.version,
+        systemIdentifier = config.systemIdentifier,
         serverVersion= Some(serverInfo.getServerVersion),
         serverLanguage = Some(serverInfo.getLanguageCode),
         serverDateTime = Some(serverInfo.getServerDateTime.toString))

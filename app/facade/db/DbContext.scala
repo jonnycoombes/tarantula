@@ -22,4 +22,12 @@ trait DbContext {
    */
   def schemaVersion() : Future[DbContextResult[String]]
 
+  /**
+   * Executes a query (or series of queries) in order to retrieve the core details about a given node
+   * @param parentId an optional parentId for the node. If None, then the id is taken to be top-level
+   * @param name the name of the node to look for
+   * @return a [[Future]] containing a [[DbContextResult]]
+   */
+  def queryNodeDetailsByName(parentId : Option[Long], name : String) : Future[DbContextResult[Long]]
+
 }
