@@ -1,5 +1,6 @@
 package facade.cws
 
+import com.opentext.cws.admin.ServerInfo
 import com.opentext.cws.authentication.OTAuthentication
 
 import scala.concurrent.Future
@@ -23,5 +24,11 @@ trait CwsProxy {
    * @return an [[OTAuthentication]] structure containing the authentication token, otherwise an exception
    */
   def authenticate() : Future[CwsProxyResult[OTAuthentication]]
+
+  /**
+   * Async wrapped call to [[com.opentext.cws.admin.AdminService]] GetServerInfo
+   * @return
+   */
+  def serverInfo() : Future[CwsProxyResult[ServerInfo]]
 
 }

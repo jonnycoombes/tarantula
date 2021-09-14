@@ -1,7 +1,6 @@
 package facade
 
 import akka.actor.ActorSystem
-import facade.db.DbContext
 import play.api.libs.concurrent.CustomExecutionContext
 import play.api.libs.json.{JsValue, Json, Writes}
 
@@ -28,7 +27,8 @@ package object repository {
    */
   case class RepositoryState (facadeVersion: String = SystemConstants.AppVersion,
                               systemIdentifier : String,
-                              schemaVersion : String)
+                              serverVersion : String,
+                              serverLanguage : String)
 
   /**
    * A [[Writes]] implementation for the serialisation of [[RepositoryState]]
@@ -38,7 +38,8 @@ package object repository {
       Json.obj(
         "systemIdentifier" -> o.systemIdentifier,
         "facadeVersion" -> SystemConstants.AppVersion,
-        "otcsSchemaVersion" -> o.schemaVersion
+        "otcsServerVersion" -> o.serverVersion,
+        "otcsServerLanguage" -> o.serverLanguage
       )
     }
   }
