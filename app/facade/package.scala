@@ -60,6 +60,11 @@ package object facade {
      */
     lazy val DefaultCwsPassword = "livelink"
 
+    /**
+     * The default time in seconds before an authentication token is expired from the cache
+     */
+    lazy val DefaultTokenCacheExpiration = 30
+
   }
 
   /**

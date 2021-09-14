@@ -2,7 +2,7 @@ package facade.cws
 
 import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
-import facade.cws.DefaultCwsProxy.{EcmApiNamespace, wrapToken}
+import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
@@ -11,10 +11,12 @@ import play.api.{Configuration, Logger}
 import java.util
 import javax.inject.{Inject, Singleton}
 import javax.xml.namespace.QName
+import javax.xml.soap.SOAPHeaderElement
 import javax.xml.ws.handler.MessageContext
 import javax.xml.ws.handler.soap.{SOAPHandler, SOAPMessageContext}
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, blocking}
+import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
 
 /**
@@ -67,11 +69,13 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return an [[OTAuthentication]] structure containing the authentication token, otherwise an exception
    */
   def authenticate(): Future[CwsProxyResult[OTAuthentication]] = {
-    val user = facadeConfig.cwsUser.getOrElse("Admin")
-    val password = facadeConfig.cwsPassword.getOrElse("livelink")
-    authClient.authenticateUser(user, password)
-      .map(s => Right(wrapToken(s)))
-      .recover({case t => log.error(t.getMessage); throw t})
+    blocking {
+      val user = facadeConfig.cwsUser.getOrElse("Admin")
+      val password = facadeConfig.cwsPassword.getOrElse("livelink")
+      authClient.authenticateUser(user, password)
+        .map(s => Right(wrapToken(s)))
+        .recover({ case t => log.error(t.getMessage); throw t })
+    }
   }
 
 
@@ -80,12 +84,23 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return a valid authentication token
    */
   private def resolveToken() : String = {
-    val result = Await.result(authenticate(), 5 seconds)
-    result match {
-      case Right(s) => s.getAuthenticationToken
-      case Left(ex) => {
-        log.warn("Failed to obtain an authentication token")
-        throw ex
+    val cachedToken = Await.result(cache.get("cachedToken"), 5 seconds)
+    if (cachedToken.isDefined) {
+      log.trace("Found cached authentication token")
+      cachedToken.get.asInstanceOf[String]
+    }else {
+      val result = Await.result(authenticate(), 5 seconds)
+      result match {
+        case Right(s) => {
+          val token= s.getAuthenticationToken
+          log.info("Caching authentication token")
+          Await.result(cache.set("cachedToken", token, 1200 seconds), 5 seconds)
+          token
+        }
+        case Left(ex) => {
+          log.warn("Failed to obtain an authentication token")
+          throw ex
+        }
       }
     }
   }
@@ -112,6 +127,12 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       tokenElement.addTextNode(resolveToken())
     }else{
       log.trace("Processing inbound message")
+      val headerElements = message.getSOAPPart.getEnvelope.getHeader.examineAllHeaderElements
+      for(element <- headerElements.asScala) {
+          if (element.getElementName.getLocalName == OtAuthenticationHeaderName){
+              //Await.result(cache.set("cachedToken", element.getFirstChild.getFirstChild.getNodeValue, 15 seconds), 5 seconds)
+          }
+      }
     }
     true
   }
@@ -126,6 +147,10 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
     true
   }
 
+  /**
+   * Implementation of [[SOAPHandler]]
+   * @param context the inbound/outbound [[SOAPMessageContext]]
+   */
   override def close(context: MessageContext): Unit = ()
 
   /**
@@ -134,9 +159,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return
    */
   override def serverInfo(): Future[CwsProxyResult[ServerInfo]] = {
-    adminClient.getServerInfo
-      .map(s => Right(s))
-      .recover({case t => log.error(t.getMessage); throw t})
+    blocking {
+      adminClient.getServerInfo
+        .map(s => Right(s))
+        .recover({ case t => log.error(t.getMessage); throw t })
+    }
   }
 }
 

@@ -45,7 +45,8 @@ class PingController @Inject()(val cc: ControllerComponents,
           val state = RepositoryState(facadeVersion = facadeConfig.version,
             systemIdentifier = facadeConfig.systemIdentifier,
             serverVersion = version.getServerVersion,
-            serverLanguage = version.getLanguageCode)
+            serverLanguage = version.getLanguageCode,
+            serverDateTime = version.getServerDateTime.toString)
           Ok(ResponseHelpers.success(Json.toJson(state)))
         }
         case Left(t) => Ok(ResponseHelpers.failure(JsString(t.getMessage)))

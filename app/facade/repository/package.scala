@@ -28,7 +28,8 @@ package object repository {
   case class RepositoryState (facadeVersion: String = SystemConstants.AppVersion,
                               systemIdentifier : String,
                               serverVersion : String,
-                              serverLanguage : String)
+                              serverLanguage : String,
+                              serverDateTime : String)
 
   /**
    * A [[Writes]] implementation for the serialisation of [[RepositoryState]]
@@ -39,7 +40,8 @@ package object repository {
         "systemIdentifier" -> o.systemIdentifier,
         "facadeVersion" -> SystemConstants.AppVersion,
         "otcsServerVersion" -> o.serverVersion,
-        "otcsServerLanguage" -> o.serverLanguage
+        "otcsServerLanguage" -> o.serverLanguage,
+        "otcsServerDateTime" -> o.serverDateTime
       )
     }
   }
