@@ -23,11 +23,10 @@ trait DbContext {
   def schemaVersion() : Future[DbContextResult[String]]
 
   /**
-   * Executes a query (or series of queries) in order to retrieve the core details about a given node
-   * @param parentId an optional parentId for the node. If None, then the id is taken to be top-level
-   * @param name the name of the node to look for
-   * @return a [[Future]] containing a [[DbContextResult]]
+   * Executes a series of queries in order to retrieve the core details about a node identified by a path relative to a root
+   * @param path a list of path elements, which when combined form a complete relative path of the form A/B/C
+   * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeCoreDetails]] instance or a [[Throwable]]
    */
-  def queryNodeDetailsByName(parentId : Option[Long], name : String) : Future[DbContextResult[Long]]
+  def queryNodeDetailsByPath(path : List[String]) : Future[DbContextResult[NodeCoreDetails]]
 
 }

@@ -2,11 +2,12 @@ package facade.repository
 
 import facade._
 import facade.cws.CwsProxy
-import facade.db.DbContext
+import facade.db.{DbContext, NodeCoreDetails}
 import play.api.cache.AsyncCacheApi
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
+import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future
 
@@ -82,12 +83,34 @@ class DefaultRepository @Inject()(configuration: Configuration,
   }
 
   /**
+   * Takes a path and then applies any relevant path expansions. Basically, the first element in the path is examined, and if it appears
+   * in the currently configured [[FacadeConfig]] path expansions map, it is replaced with the elements in this map
+   * @param path the path to apply expansion to
+   * @return an expanded path
+   */
+  private def applyPathExpansions(path : List[String]) :  List[String] = {
+    path match {
+      case Nil => path
+      case head :: tail => {
+          facadeConfig.pathExpansions.get(head) match {
+            case Some(expansion) => {
+              expansion.split('/').toList  ++ tail
+            }
+            case None => {
+              head :: tail
+            }
+          }
+      }
+    }
+  }
+
+  /**
    * Takes a path and attempts to resolve it to an underlying repository id (in the case of OTCS, this will be a DataID)
    *
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
-  override def resolvePath(path: RepositoryPath): Future[RepositoryResult[Long]] = {
-    val nodeId= dbContext.queryNodeDetailsByName(None, path.head)
+  override def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]] = {
+    val nodeId= dbContext.queryNodeDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
     nodeId map {
       case Right(id) => Right(id)
       case Left(t) => Left(t)

@@ -2,6 +2,7 @@ package facade
 
 import akka.actor.ActorSystem
 import play.api.libs.concurrent.CustomExecutionContext
+import play.api.libs.json.{JsValue, Json, Writes}
 
 import javax.inject.{Inject, Singleton}
 
@@ -27,5 +28,20 @@ package object db {
    * @param originDataId the origin data id for an alias
    */
   case class NodeCoreDetails(parentId : Long, dataId : Long, name : String, subType : Long, originDataId : Long)
+
+  /**
+   * [[Writes]] for [[NodeCoreDetails]]
+   */
+  implicit val nodeCoreDetailsWrites : Writes[NodeCoreDetails] = new Writes[NodeCoreDetails] {
+    override def writes(o: NodeCoreDetails): JsValue = {
+      Json.obj(
+        "parentId" -> o.parentId,
+        "dataId" -> o.dataId,
+        "name" -> o.name,
+        "subType" -> o.subType,
+        "originDataId" -> o.originDataId
+      )
+    }
+  }
 
 }

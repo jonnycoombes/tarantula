@@ -1,5 +1,10 @@
+import com.typesafe.config.ConfigObject
 import facade.db.DbContext
 import play.api.Configuration
+
+import scala.collection.mutable
+import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
  * Top level package object for the facade package. Configuration related top level objects and classes go in here,
@@ -74,19 +79,37 @@ package object facade {
   case class FacadeConfig(systemIdentifier: String,
                           version: String,
                           cwsUser : Option[String],
-                          cwsPassword : Option[String])
+                          cwsPassword : Option[String],
+                          pathExpansions : mutable.Map[String, String],
+                          idCacheLifetime : Duration,
+                          metaCacheLifetime : Duration)
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
    * given [[play.api.Configuration]]
    */
   object FacadeConfig {
+
+    private def mapPathExpansions(config : Configuration) : mutable.Map[String, String] = {
+      val mappedExpansions : mutable.Map[String, String] = mutable.Map[String, String]()
+      val expansions : Iterable[ConfigObject] = config.underlying.getObjectList("facade.path.expansions").asScala
+          for (item <- expansions){
+            mappedExpansions.addOne((item.keySet().toArray()(0).toString,
+                                    item.entrySet().iterator().next().getValue.unwrapped().toString))
+          }
+      mappedExpansions
+    }
+
     def apply(config: Configuration): FacadeConfig = {
+
       FacadeConfig(
         systemIdentifier = config.getOptional[String]("facade.system.identifier").getOrElse(SystemConstants.SystemIdentifier),
         version = SystemConstants.AppVersion,
         cwsUser = config.getOptional[String]("facade.cws.user"),
-        cwsPassword = config.getOptional[String]("facade.cws.password")
+        cwsPassword = config.getOptional[String]("facade.cws.password"),
+        pathExpansions = mapPathExpansions(config),
+        idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(Duration.Inf),
+        metaCacheLifetime = config.getOptional[Duration]("facade.meta.cache.lifetime").getOrElse(Duration.Inf),
       )
     }
   }

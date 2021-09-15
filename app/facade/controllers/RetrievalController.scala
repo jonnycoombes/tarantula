@@ -1,16 +1,14 @@
 package facade.controllers
 
 import akka.actor.ActorSystem
-import facade.{FacadeConfig, LogNames}
-import facade.cws.CwsProxy
-import facade.db.DbContext
 import facade.repository._
-import play.api.libs.json.{JsNumber, JsString}
-import play.api.{Configuration, Logger}
+import facade.{FacadeConfig, LogNames}
+import play.api.libs.json.{JsString, Json}
 import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
+import play.api.{Configuration, Logger}
 
 import javax.inject.{Inject, Singleton}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 @Singleton
 class RetrievalController @Inject()(val cc: ControllerComponents,
@@ -39,10 +37,10 @@ class RetrievalController @Inject()(val cc: ControllerComponents,
    * @return
    */
   def get(path: String, depth : Int, meta : Boolean, content : Boolean, version : Int): Action[AnyContent] = Action.async {
-    val resolutionFuture = repository.resolvePath(path)
+    val resolutionFuture = repository.resolvePath(path.split('/').toList)
     resolutionFuture map {
-      case Right(id) => {
-        Ok(ResponseHelpers.success(JsNumber(id)))
+      case Right(details) => {
+        Ok(ResponseHelpers.success(Json.toJson(details)))
       }
       case Left(t) => {
         Ok(ResponseHelpers.failure(JsString(t.getMessage)))

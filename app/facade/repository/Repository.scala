@@ -1,5 +1,7 @@
 package facade.repository
 
+import facade.db.NodeCoreDetails
+
 import scala.concurrent.Future
 
 /**
@@ -25,6 +27,6 @@ trait Repository {
    * Takes a path and attempts to resolve it to an underlying repository id (in the case of OTCS, this will be a DataID)
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
-  def resolvePath(path : RepositoryPath) : Future[RepositoryResult[Long]]
+  def resolvePath(path : RepositoryPath) : Future[RepositoryResult[NodeCoreDetails]]
 
 }
