@@ -16,6 +16,7 @@ libraryDependencies ++= Seq(jdbc, ehcache, ws, specs2 % Test, guice)
 libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc" % Versions.SqlJdbcVersion
 libraryDependencies += "com.microsoft.sqlserver" % "mssql-jdbc_auth" % Versions.SqlJdbcAuthVersion
 libraryDependencies += "org.playframework.anorm" %% "anorm" % Versions.AnormVersion
+libraryDependencies += "com.typesafe.play" %% "play-json-joda" % Versions.PlayJodaVersion
 
 // Custom set of WsdlTasks in order to take into account inaccuracies in the Otcs Cws WSDL definitions
 Compile / WsdlKeys.wsdlTasks := Seq(

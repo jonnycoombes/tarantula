@@ -2,6 +2,7 @@ package facade.cws
 
 import com.opentext.cws.admin.ServerInfo
 import com.opentext.cws.authentication.OTAuthentication
+import com.opentext.cws.docman.Node
 
 import scala.concurrent.Future
 
@@ -30,5 +31,12 @@ trait CwsProxy {
    * @return
    */
   def serverInfo() : Future[CwsProxyResult[ServerInfo]]
+
+  /**
+   * Retrieve a node based on it's id
+   * @param id the id of the node
+   * @return a [[Future]] wrapping a [[CwsProxyResult]]
+   */
+  def getNodeById(id : Long) : Future[CwsProxyResult[Node]]
 
 }

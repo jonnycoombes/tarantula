@@ -12,4 +12,6 @@ object Versions {
 
   lazy val SqlJdbcAuthVersion = "9.4.0.x64"
 
+  lazy val PlayJodaVersion = "2.9.2"
+
 }

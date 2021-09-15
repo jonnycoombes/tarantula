@@ -3,8 +3,9 @@ import facade.db.DbContext
 import play.api.Configuration
 
 import scala.collection.mutable
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.language.postfixOps
 
 /**
  * Top level package object for the facade package. Configuration related top level objects and classes go in here,
@@ -81,8 +82,9 @@ package object facade {
                           cwsUser : Option[String],
                           cwsPassword : Option[String],
                           pathExpansions : mutable.Map[String, String],
+                          tokenCacheLifetime : Duration,
                           idCacheLifetime : Duration,
-                          metaCacheLifetime : Duration)
+                          jsonCacheLifetime : Duration)
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
@@ -108,8 +110,9 @@ package object facade {
         cwsUser = config.getOptional[String]("facade.cws.user"),
         cwsPassword = config.getOptional[String]("facade.cws.password"),
         pathExpansions = mapPathExpansions(config),
+        tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(15 minutes),
         idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(Duration.Inf),
-        metaCacheLifetime = config.getOptional[Duration]("facade.meta.cache.lifetime").getOrElse(Duration.Inf),
+        jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(Duration.Inf),
       )
     }
   }

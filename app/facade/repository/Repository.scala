@@ -1,6 +1,7 @@
 package facade.repository
 
 import facade.db.NodeCoreDetails
+import play.api.libs.json.JsObject
 
 import scala.concurrent.Future
 
@@ -28,5 +29,12 @@ trait Repository {
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
   def resolvePath(path : RepositoryPath) : Future[RepositoryResult[NodeCoreDetails]]
+
+  /**
+   * Renders a node into a [[JsObject]] representation
+   * @param id the id for the node
+   * @return a [[JsObject]] representing the node
+   */
+  def renderNode(id : Long) : Future[RepositoryResult[JsObject]]
 
 }

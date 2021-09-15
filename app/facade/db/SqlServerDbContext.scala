@@ -9,6 +9,7 @@ import play.api.db.Database
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
+import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, blocking}
@@ -47,7 +48,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   lookupNodeCoreDetails(-1, "Enterprise") match {
     case Right(details) => {
       log.trace("Caching Enterprise details")
-      cache.set("Enterprise", details)
+      cache.set("Enterprise", details, facadeConfig.idCacheLifetime)
     }
     case Left(ex) => {
       throw ex
@@ -118,7 +119,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
           val prefixCacheKey = prefix.toList.mkString("/")
           cache.get[NodeCoreDetails](prefixCacheKey) match {
             case Some(details) => {
-              log.trace(s"Prefix cache *hit* for \"${prefixCacheKey}\"")
+              log.trace(s"Prefix cache *hit* for '${prefixCacheKey}'")
                 result= Some(details)
               if (details.subType != 1) {
                 parentId = details.dataId
@@ -127,10 +128,10 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
               }
             }
             case None => {
-              log.trace(s"Prefix cache *miss* for \"${prefixCacheKey}\"")
+              log.trace(s"Prefix cache *miss* for '${prefixCacheKey}'")
               lookupNodeCoreDetails(parentId, segment) match {
                 case Right(details) => {
-                  log.trace(s"Setting prefix cache entry for \"${prefixCacheKey}\" [${details}]")
+                  log.trace(s"Setting prefix cache entry for '${prefixCacheKey}' [${details}]")
                   cache.set(prefixCacheKey, details, facadeConfig.idCacheLifetime)
                   if (details.subType != 1) {
                     parentId = details.dataId
@@ -159,20 +160,20 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    */
   override def queryNodeDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
     val combined = path.mkString("/")
-    log.trace(s"Lookup for path \"${combined}\"")
+    log.trace(s"Lookup for path '${combined}'")
     cache.get[NodeCoreDetails](combined) match {
       case Some(details) => {
-        log.trace(s"Full cache *hit* for \"${combined}\"")
+        log.trace(s"Full cache *hit* for '${combined}'")
         Future.successful(Right(details))
       }
       case None => {
-        log.trace(s"Full cache *miss* for \"${combined}\"")
+        log.trace(s"Full cache *miss* for '${combined}'")
         resolvePath(path) map {
           case Some(details) => {
             Right(details)
           }
           case None => {
-            Left(new Throwable("Could not resolve path"))
+            Left(new Throwable(s"Could not resolve path '${URLDecoder.decode(combined, "UTF-8")}'"))
           }
         }
       }

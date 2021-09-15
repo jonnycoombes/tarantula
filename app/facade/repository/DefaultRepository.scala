@@ -1,10 +1,11 @@
 package facade.repository
 
 import facade._
-import facade.cws.CwsProxy
+import facade.cws.{CwsProxy, JsonRenderers}
 import facade.db.{DbContext, NodeCoreDetails}
-import play.api.cache.AsyncCacheApi
+import play.api.cache.{AsyncCacheApi, NamedCache}
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.json.JsObject
 import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
@@ -27,7 +28,7 @@ import scala.concurrent.Future
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
-                                  cache: AsyncCacheApi,
+                                  @NamedCache("json-cache") cache: AsyncCacheApi,
                                   dbContext: DbContext,
                                   cwsProxy: CwsProxy,
                                   implicit val repositoryExecutionContext: RepositoryExecutionContext)
@@ -114,6 +115,33 @@ class DefaultRepository @Inject()(configuration: Configuration,
     nodeId map {
       case Right(id) => Right(id)
       case Left(t) => Left(t)
+    }
+  }
+
+  /**
+   * Renders a node into a [[JsObject]] representation
+   *
+   * @param id the id for the node
+   * @return a [[JsObject]] representing the node
+   */
+  override def renderNode(id: Long): Future[RepositoryResult[JsObject]] = {
+    cache.get[JsObject](id.toHexString) flatMap {
+      case Some(rendition) => {
+        log.trace(s"Json cache *hit* for node with id ${id}")
+        Future.successful(Right(rendition))
+      }
+      case None => {
+        log.trace(s"Json cache *miss* for node with id ${id}")
+        cwsProxy.getNodeById(id) flatMap {
+          case Right(node) => {
+              val rendition = JsonRenderers.renderNodeToJson(node)
+              cache.set(id.toHexString, rendition, facadeConfig.jsonCacheLifetime) map { _ =>
+                  Right(rendition)
+              }
+          }
+          case Left(t) => Future.successful(Left(t))
+        }
+      }
     }
   }
 }

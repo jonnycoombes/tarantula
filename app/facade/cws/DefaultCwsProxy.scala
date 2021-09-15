@@ -2,6 +2,7 @@ package facade.cws
 
 import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
+import com.opentext.cws.docman.{DocumentManagement_Service, Node}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.{AsyncCacheApi, NamedCache}
@@ -32,6 +33,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
                                 @NamedCache("token-cache") cache: AsyncCacheApi,
                                 authenticationService: Authentication_Service,
                                 adminService: AdminService_Service,
+                                documentManagementService: DocumentManagement_Service,
                                 implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy with
   SOAPHandler[SOAPMessageContext] {
 
@@ -56,6 +58,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * Pre-bound CWS admin client
    */
   private lazy val adminClient = adminService.basicHttpBindingAdminService(this)
+
+  /**
+   * Pre-bound CWS document management client
+   */
+  private lazy val docManClient = documentManagementService.basicHttpBindingDocumentManagement(this)
 
   lifecycle.addStopHook { () =>
     Future.successful({
@@ -95,8 +102,8 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         result match {
           case Right(s) => {
             val token = s.getAuthenticationToken
-            log.info("Caching authentication token")
-            Await.result(cache.set("cachedToken", token, 1200 seconds), 5 seconds)
+            log.trace("Caching authentication token")
+            Await.result(cache.set("cachedToken", token, facadeConfig.tokenCacheLifetime), 5 seconds)
             token
           }
           case Left(ex) => {
@@ -189,6 +196,25 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
     blocking {
       adminClient.getServerInfo map { info: ServerInfo =>
         Right(info)
+      } recover {
+        case t => {
+          log.error(t.getMessage)
+          Left(t)
+        }
+      }
+    }
+  }
+
+  /**
+   * Retrieve a node based on it's id
+   *
+   * @param id the id of the node
+   * @return a [[Future]] wrapping a [[CwsProxyResult]]
+   */
+  override def getNodeById(id: Long): Future[CwsProxyResult[Node]] = {
+    blocking{
+      docManClient.getNode(id) map { node : Node =>
+          Right(node)
       } recover {
         case t => {
           log.error(t.getMessage)
