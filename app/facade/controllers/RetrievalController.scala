@@ -36,7 +36,7 @@ class RetrievalController @Inject()(val cc: ControllerComponents,
    * @param version if retrieving content, the version to be retrieved.
    * @return
    */
-  def get(path: String, depth : Int, meta : Boolean, content : Boolean, version : Int): Action[AnyContent] = Action.async {
+  def get(path: String, depth : Int, content : Boolean, version : Int): Action[AnyContent] = Action.async {
     val resolutionFuture = repository.resolvePath(path.split('/').toList)
     resolutionFuture flatMap {
       case Right(details) => {

@@ -1,10 +1,12 @@
-# Facade Redux
+# __Facade Redux__
 
 This is the revised and upgraded version of the CS16 REST facade, deployed and used by Discovery Bank in Johannesburg, amongst others. This
 represents a significant upgrade to the original Facade built in 2017 and contains a number of performance, functionality and stability
 improvements.
 
-## Baseline Environment
+___
+
+## __Build Environment__
 
 The baseline build and deployment environment for this version of the facade is as follows:
 
@@ -14,15 +16,23 @@ The baseline build and deployment environment for this version of the facade is 
 | Scala     | 2.13.6  |
 | JDK       | 11.0.12 |
 | SBT       | 1.5.5   |
+| JRE       | 11.0.12
 
-## Dependencies
+
+___
+
+## __Supported Environments__
 
 This version of the facade has built-in support for version 16.2.x of OpenText Content Server. This version of the facade will not be
 actively tested and regressed against earlier versions, and will not offer direct support for versions > 16.  (I.e. Content Server 20).
 
 The facade as built assumes an underlying OTCS schema hosted on SQL Server or SQL Services within Azure.
 
-## Key Design Objectives
+The facade may be hosted on any platform supporting the underlying JRE. (It is tested against Windows, Linux & OSX by default).
+
+___
+
+## __Design Objectives__
 
 The key design objectives for the revised version of the facade are listed below:
 
@@ -34,9 +44,14 @@ The key design objectives for the revised version of the facade are listed below
 * Simplfiication of the facade configuration - default to "by convention" approach rather than explicit configuration.
 * Self scaffolding of any supporting SQL elements.
 
-##Implementation Notes
+___
 
-## Configuration
+## __Implementation Notes__
+
+### __Internal Changes to Previous Versions__
+
+
+### __Facade Configuration__
 
 The table below gives a breakdown of the key facade configuration parameters, which should be set within the *facade.conf* HCON file.  (By default, this file is located within the *conf* subdirectory under the application root.
 
@@ -45,3 +60,22 @@ The table below gives a breakdown of the key facade configuration parameters, wh
 | ----------------------------- | -------------------------------------- | -------------- | ------------ |
 | facade.system.identifier    | The system identifier (user-defined) | "facade-dev" | "hyperion" |
 |                             |                                      |              |            |
+
+### __Functional Changes To Previous Versions__
+
+As far as possible, this version of the Facade attempts to retain functional compatibility with previous versions.  However, in certain 
+areas (largely for simplification reasons) a number of functional changes have been made.  These are detailed below.
+
+#### __Ping returns more sensible information__
+
+
+#### __Metadata is always returned for nodes__
+In previous versions of the facade, in order to retrieve the metadata (other than the core information) for a given object within the 
+underlying repository, it was necessary to set the *meta* query string parameter to *true*. This parameter has been removed within this 
+version, and full metadata is always returned. This change has been made given that the aggressive caching strategies employed within 
+this version of the facade amortise any performance overhead associated with the translation of the native CWS meta-data structures and 
+the required JSON outbound payload.  For any given node,  the JSON rendition of it's core information and associated metadata is 
+*cached* wherever possible , so that successive calls for the same meta-data will incur minimal overhead.
+
+
+
