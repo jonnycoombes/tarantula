@@ -1,0 +1,138 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2021-09-16T15:58:06.322Z",
+  "__export_source": "insomnia.desktop.app:v2021.5.3",
+  "resources": [
+    {
+      "_id": "req_57952bb9bba54fba95d1596c31d561b6",
+      "parentId": "wrk_932463a072244cdb86bd06b896773269",
+      "modified": 1631731219720,
+      "created": 1631639701554,
+      "url": "{{ _.server_base }}/api/v1/Enterprise/Alias/10000000",
+      "name": "Enterprise",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -1631639701554,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "wrk_932463a072244cdb86bd06b896773269",
+      "parentId": null,
+      "modified": 1631030275586,
+      "created": 1631030275586,
+      "name": "Facade",
+      "description": "",
+      "scope": "collection",
+      "_type": "workspace"
+    },
+    {
+      "_id": "req_3f525db44dcf4c9aaab2961a726e7f6d",
+      "parentId": "wrk_932463a072244cdb86bd06b896773269",
+      "modified": 1631807649668,
+      "created": 1631775950231,
+      "url": "{{ _.server_base }}/api/v1/workspace/10000000/My%20Storage",
+      "name": "Workspace",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -1631335015511.5,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_db1115a6156d4521ba590136975037da",
+      "parentId": "wrk_932463a072244cdb86bd06b896773269",
+      "modified": 1631032139952,
+      "created": 1631030329469,
+      "url": "{{ _.server_base }}/api/v1/ping",
+      "name": "Ping",
+      "description": "",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -1631030329469,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "env_a6378c73c5d7cb8c96b1ee8c457fa526b368611e",
+      "parentId": "wrk_932463a072244cdb86bd06b896773269",
+      "modified": 1631030275683,
+      "created": 1631030275683,
+      "name": "Base Environment",
+      "data": {},
+      "dataPropertyOrder": null,
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1631030275683,
+      "_type": "environment"
+    },
+    {
+      "_id": "jar_a6378c73c5d7cb8c96b1ee8c457fa526b368611e",
+      "parentId": "wrk_932463a072244cdb86bd06b896773269",
+      "modified": 1631030275686,
+      "created": 1631030275686,
+      "name": "Default Jar",
+      "cookies": [],
+      "_type": "cookie_jar"
+    },
+    {
+      "_id": "spc_e6da083f64da431e96b61f1cf40799f1",
+      "parentId": "wrk_932463a072244cdb86bd06b896773269",
+      "modified": 1631030275593,
+      "created": 1631030275593,
+      "fileName": "Facade",
+      "contents": "",
+      "contentType": "yaml",
+      "_type": "api_spec"
+    },
+    {
+      "_id": "env_7352796246374de8a6ccadb264e723f7",
+      "parentId": "env_a6378c73c5d7cb8c96b1ee8c457fa526b368611e",
+      "modified": 1631030315647,
+      "created": 1631030283591,
+      "name": "Facade Dev",
+      "data": {
+        "server_base": "http://localhost:9000"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "server_base"
+        ]
+      },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1631030283591,
+      "_type": "environment"
+    }
+  ]
+}

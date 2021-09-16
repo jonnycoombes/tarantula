@@ -2,7 +2,7 @@ package facade.db
 
 import anorm.SqlParser.scalar
 import anorm._
-import facade.db.SqlServerDbContext.{nodeCoreDetailsParser, nodeDetailsByNameSql, schemaVersionSql}
+import facade.db.SqlServerDbContext.{isAlias, isVolume, nodeCoreDetailsParser, nodeDetailsByNameSql, schemaVersionSql}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.db.Database
@@ -104,28 +104,42 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
 
   /**
    * Perform a cache-aware lookup for a given node, based on a path
+   *
    * @param path the path to resolve
    * @return a [[Future]]
    */
   private def resolvePath(path: List[String]): Future[Option[NodeCoreDetails]] = {
-    if(path.isEmpty) Future.successful(None)
+
+    /**
+     * Local function for determining the correct parentId used to drive the query
+     *
+     * @param details an instance of [[NodeCoreDetails]]
+     * @return
+     */
+    @inline def deriveParentId(details: NodeCoreDetails): Long = {
+      if (isAlias(details.subType)) {
+        details.originDataId
+      } else if (isVolume(details.subType)) {
+        -details.dataId
+      } else {
+        details.dataId
+      }
+    }
+
+    if (path.isEmpty) Future.successful(None)
     Future {
-      blocking{
+      blocking {
         val prefix = new ListBuffer[String]
-        var parentId : Long = -1
-        var result : Option[NodeCoreDetails] = None
-        for(segment <- path){
+        var parentId: Long = -1
+        var result: Option[NodeCoreDetails] = None
+        for (segment <- path) {
           prefix += segment
           val prefixCacheKey = prefix.toList.mkString("/")
           cache.get[NodeCoreDetails](prefixCacheKey) match {
             case Some(details) => {
               log.trace(s"Prefix cache *hit* for '${prefixCacheKey}'")
-                result= Some(details)
-              if (details.subType != 1) {
-                parentId = details.dataId
-              }else{
-                parentId = details.originDataId
-              }
+              result = Some(details)
+              parentId = deriveParentId(details)
             }
             case None => {
               log.trace(s"Prefix cache *miss* for '${prefixCacheKey}'")
@@ -133,15 +147,11 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
                 case Right(details) => {
                   log.trace(s"Setting prefix cache entry for '${prefixCacheKey}' [${details}]")
                   cache.set(prefixCacheKey, details, facadeConfig.idCacheLifetime)
-                  if (details.subType != 1) {
-                    parentId = details.dataId
-                  }else{
-                    parentId = details.originDataId
-                  }
-                  result= Some(details)
+                  parentId = deriveParentId(details)
+                  result = Some(details)
                 }
                 case Left(t) => {
-                  result= None
+                  result = None
                 }
               }
             }
@@ -206,6 +216,31 @@ object SqlServerDbContext {
    */
   lazy val nodeCoreDetailsParser: RowParser[NodeCoreDetails] = Macro.parser[NodeCoreDetails]("ParentID", "DataID", "Name",
     "SubType", "OriginDataID")
+
+  /**
+   * A list of node subtypes who have a corresponding volume
+   */
+  lazy val VolumeSubTypes = List(848)
+
+  /**
+   * Returns true if a given subtype represents an Alias
+   *
+   * @param subType the subtype of a given OTCS node
+   * @return
+   */
+  @inline def isAlias(subType: Long): Boolean = {
+    subType == 1
+  }
+
+  /**
+   * Returns true if a given subtype represents a node with an associated volume
+   *
+   * @param subType the subtype of a givne OTCS node
+   * @return
+   */
+  @inline def isVolume(subType: Long): Boolean = {
+    VolumeSubTypes.contains(subType)
+  }
 
 
 }
