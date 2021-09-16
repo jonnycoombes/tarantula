@@ -3,7 +3,7 @@ import facade.db.DbContext
 import play.api.Configuration
 
 import scala.collection.mutable
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.language.postfixOps
 
@@ -69,7 +69,7 @@ package object facade {
     /**
      * The default time in seconds before an authentication token is expired from the cache
      */
-    lazy val DefaultTokenCacheExpiration = 30
+    lazy val DefaultTokenCacheExpiration: FiniteDuration = 15 minutes
 
   }
 
@@ -110,7 +110,7 @@ package object facade {
         cwsUser = config.getOptional[String]("facade.cws.user"),
         cwsPassword = config.getOptional[String]("facade.cws.password"),
         pathExpansions = mapPathExpansions(config),
-        tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(15 minutes),
+        tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(SystemConstants.DefaultTokenCacheExpiration),
         idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(Duration.Inf),
         jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(Duration.Inf),
       )
