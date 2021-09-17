@@ -5,7 +5,7 @@ import com.opentext.cws.authentication._
 import com.opentext.cws.docman.{DocumentManagement_Service, Node}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
-import play.api.cache.{AsyncCacheApi, NamedCache}
+import play.api.cache.{AsyncCacheApi, NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
@@ -30,7 +30,8 @@ import scala.language.postfixOps
 @Singleton
 class DefaultCwsProxy @Inject()(configuration: Configuration,
                                 lifecycle: ApplicationLifecycle,
-                                @NamedCache("token-cache") cache: AsyncCacheApi,
+                                @NamedCache("token-cache") tokenCache: SyncCacheApi,
+                                @NamedCache("node-cache") nodeCache : SyncCacheApi,
                                 authenticationService: Authentication_Service,
                                 adminService: AdminService_Service,
                                 documentManagementService: DocumentManagement_Service,
@@ -92,7 +93,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return a valid authentication token
    */
   private def resolveToken(): String = {
-    val cachedToken = Await.result(cache.get("cachedToken"), 5 seconds)
+    val cachedToken = tokenCache.get("cachedToken")
     if (cachedToken.isDefined) {
       log.trace("Found cached authentication token")
       cachedToken.get.asInstanceOf[String]
@@ -103,7 +104,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           case Right(s) => {
             val token = s.getAuthenticationToken
             log.trace("Caching authentication token")
-            Await.result(cache.set("cachedToken", token, facadeConfig.tokenCacheLifetime), 5 seconds)
+            tokenCache.set("cachedToken", token, facadeConfig.tokenCacheLifetime)
             token
           }
           case Left(ex) => {
@@ -144,7 +145,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
     val message = context.getMessage
     if (outbound) {
       try {
-        log.trace("Processing outbound message")
         val header = message.getSOAPPart.getEnvelope.addHeader()
         val authElement = header.addHeaderElement(new QName(EcmApiNamespace, "OTAuthentication"))
         val tokenElement = authElement.addChildElement(new QName(EcmApiNamespace, "AuthenticationToken"))
@@ -158,7 +158,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         }
       }
     } else {
-      log.trace("Processing inbound message")
       val headerElements = message.getSOAPPart.getEnvelope.getHeader.examineAllHeaderElements
       for (element <- headerElements.asScala) {
         if (element.getElementName.getLocalName == OtAuthenticationHeaderName) {
@@ -211,14 +210,28 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @param id the id of the node
    * @return a [[Future]] wrapping a [[CwsProxyResult]]
    */
-  override def getNodeById(id: Long): Future[CwsProxyResult[Node]] = {
+  override def nodeById(id: Long): Future[CwsProxyResult[Node]] = {
     blocking{
-      docManClient.getNode(id) map { node : Node =>
-          Right(node)
-      } recover {
-        case t => {
-          log.error(t.getMessage)
-          Left(t)
+      nodeCache.get[Node](id.toHexString) match {
+        case Some(node) => {
+          log.trace(s"Node cache *hit* for id=${id}")
+          Future.successful(Right(node))
+        }
+        case None => {
+          log.trace(s"Node cache *miss* for id=${id}")
+          docManClient.getNode(id) map { node : Node =>
+            if (node != null) {
+              nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
+              Right(node)
+            }else{
+              Left(new Throwable(s"Looks as if the node type for id=${id} isn't supported by CWS"))
+            }
+          } recover {
+            case t => {
+              log.error(t.getMessage)
+              Left(t)
+            }
+          }
         }
       }
     }

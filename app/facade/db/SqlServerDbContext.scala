@@ -2,7 +2,7 @@ package facade.db
 
 import anorm.SqlParser.scalar
 import anorm._
-import facade.db.SqlServerDbContext.{isAlias, isVolume, nodeCoreDetailsParser, nodeDetailsByNameSql, schemaVersionSql}
+import facade.db.SqlServerDbContext.{ nodeChildrenById, nodeCoreDetailsParser, nodeDetailsByNameSql, schemaVersionSql}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.db.Database
@@ -11,6 +11,7 @@ import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
+import scala.::
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, blocking}
 import scala.language.postfixOps
@@ -45,7 +46,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    */
   private val facadeConfig = FacadeConfig(configuration)
 
-  lookupNodeCoreDetails(-1, "Enterprise") match {
+  queryChildByName(None, "Enterprise") match {
     case Right(details) => {
       log.trace("Caching Enterprise details")
       cache.set("Enterprise", details, facadeConfig.idCacheLifetime)
@@ -87,9 +88,10 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param name     the name of the node to lookup
    * @return A [[DbContextResult]]
    */
-  private def lookupNodeCoreDetails(parentId: Long, name: String): DbContextResult[NodeCoreDetails] = {
+  private def queryChildByName(details: Option[NodeCoreDetails], name: String): DbContextResult[NodeCoreDetails] = {
     try {
       db.withConnection { implicit c =>
+        val parentId = details.fold(-1L)(d => deriveParentId(d))
         val results = nodeDetailsByNameSql.on("p1" -> parentId).on("p2" -> name).as(nodeCoreDetailsParser.*)
         if (results.isEmpty) {
           Left(new Throwable("No node with that name exists"))
@@ -103,6 +105,22 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   }
 
   /**
+   * Local function for determining the correct parentId used to drive the query
+   *
+   * @param details an instance of [[NodeCoreDetails]]
+   * @return
+   */
+  @inline def deriveParentId(details: NodeCoreDetails): Long = {
+    if (details.isAlias) {
+      details.originDataId
+    } else if (details.isVolume) {
+      -details.dataId
+    } else {
+      details.dataId
+    }
+  }
+
+  /**
    * Perform a cache-aware lookup for a given node, based on a path
    *
    * @param path the path to resolve
@@ -110,27 +128,10 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    */
   private def resolvePath(path: List[String]): Future[Option[NodeCoreDetails]] = {
 
-    /**
-     * Local function for determining the correct parentId used to drive the query
-     *
-     * @param details an instance of [[NodeCoreDetails]]
-     * @return
-     */
-    @inline def deriveParentId(details: NodeCoreDetails): Long = {
-      if (isAlias(details.subType)) {
-        details.originDataId
-      } else if (isVolume(details.subType)) {
-        -details.dataId
-      } else {
-        details.dataId
-      }
-    }
-
     if (path.isEmpty) Future.successful(None)
     Future {
       blocking {
         val prefix = new ListBuffer[String]
-        var parentId: Long = -1
         var result: Option[NodeCoreDetails] = None
         for (segment <- path) {
           prefix += segment
@@ -139,15 +140,13 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
             case Some(details) => {
               log.trace(s"Prefix cache *hit* for '${prefixCacheKey}'")
               result = Some(details)
-              parentId = deriveParentId(details)
             }
             case None => {
               log.trace(s"Prefix cache *miss* for '${prefixCacheKey}'")
-              lookupNodeCoreDetails(parentId, segment) match {
+              queryChildByName(result, segment) match {
                 case Right(details) => {
                   log.trace(s"Setting prefix cache entry for '${prefixCacheKey}' [${details}]")
                   cache.set(prefixCacheKey, details, facadeConfig.idCacheLifetime)
-                  parentId = deriveParentId(details)
                   result = Some(details)
                 }
                 case Left(t) => {
@@ -168,7 +167,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param path a list of path elements, which when combined form a complete relative path of the form A/B/C
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeCoreDetails]] instance or a [[Throwable]]
    */
-  override def queryNodeDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
+  override def queryDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
     val combined = path.mkString("/")
     log.trace(s"Lookup for path '${combined}'")
     cache.get[NodeCoreDetails](combined) match {
@@ -193,13 +192,20 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   /**
    * Returns a list of the child ids for a given node
    *
-   * @param id the parent id
+   * @param details the [[NodeCoreDetails]] for the parent
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
    */
-  override def queryNodeChildren(id: Long): Future[DbContextResult[List[Long]]] = {
+  override def queryChildrenDetails(details: NodeCoreDetails): Future[DbContextResult[List[NodeCoreDetails]]] = {
     Future{
       blocking{
-        Right(List())
+        try{
+          db.withConnection{implicit c =>
+            val parentId= deriveParentId(details)
+            Right(nodeChildrenById.on("p1" -> parentId).as(nodeCoreDetailsParser.*))
+          }
+        }catch{
+          case t: Throwable => Left(t)
+        }
       }
     }
   }
@@ -230,7 +236,7 @@ object SqlServerDbContext {
    */
   lazy val nodeChildrenById : SimpleSql[Row] = SQL(
     """
-      |select DataID
+      |select ParentID, DataID, Name, SubType, OriginDataID
       |   from DTreeCore
       |     where ParentID = {p1}
       |""".stripMargin)
@@ -240,31 +246,5 @@ object SqlServerDbContext {
    */
   lazy val nodeCoreDetailsParser: RowParser[NodeCoreDetails] = Macro.parser[NodeCoreDetails]("ParentID", "DataID", "Name",
     "SubType", "OriginDataID")
-
-  /**
-   * A list of node subtypes who have a corresponding volume
-   */
-  lazy val VolumeSubTypes = List(848)
-
-  /**
-   * Returns true if a given subtype represents an Alias
-   *
-   * @param subType the subtype of a given OTCS node
-   * @return
-   */
-  @inline def isAlias(subType: Long): Boolean = {
-    subType == 1
-  }
-
-  /**
-   * Returns true if a given subtype represents a node with an associated volume
-   *
-   * @param subType the subtype of a givne OTCS node
-   * @return
-   */
-  @inline def isVolume(subType: Long): Boolean = {
-    VolumeSubTypes.contains(subType)
-  }
-
 
 }

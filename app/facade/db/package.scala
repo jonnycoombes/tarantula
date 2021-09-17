@@ -20,6 +20,11 @@ package object db {
   class DbExecutionContext @Inject()(system : ActorSystem) extends CustomExecutionContext(system, "facade.sql.dispatcher")
 
   /**
+   * A list of node subtypes who have a corresponding volume
+   */
+  lazy val VolumeSubTypes: Seq[Long] = List[Long](848)
+
+  /**
    * Case class for containing core node database details (taken from DTreeCore)
    * @param parentId the parent id
    * @param dataId the node data id
@@ -27,7 +32,11 @@ package object db {
    * @param subType the subtype of the node
    * @param originDataId the origin data id for an alias
    */
-  case class NodeCoreDetails(parentId : Long, dataId : Long, name : String, subType : Long, originDataId : Long)
+  case class NodeCoreDetails(parentId : Long, dataId : Long, name : String, subType : Long, originDataId : Long){
+    @inline def isAlias: Boolean = subType == 1
+    @inline def isVolume: Boolean = VolumeSubTypes.contains(subType)
+    @inline def isDocument: Boolean = subType == 144
+  }
 
   /**
    * [[Writes]] for [[NodeCoreDetails]]
@@ -39,7 +48,10 @@ package object db {
         "dataId" -> o.dataId,
         "name" -> o.name,
         "subType" -> o.subType,
-        "originDataId" -> o.originDataId
+        "originDataId" -> o.originDataId,
+        "isAlias" -> o.isAlias,
+        "isVolume" -> o.isVolume,
+        "isDocument" -> o.isDocument
       )
     }
   }

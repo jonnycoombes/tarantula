@@ -1,5 +1,6 @@
 import com.typesafe.config.ConfigObject
-import facade.db.DbContext
+import facade.SystemConstants.JsonCacheLifetime
+import facade.db.{DbContext, nodeCoreDetailsWrites}
 import play.api.Configuration
 
 import scala.collection.mutable
@@ -67,10 +68,29 @@ package object facade {
     lazy val DefaultCwsPassword = "livelink"
 
     /**
-     * The default time in seconds before an authentication token is expired from the cache
+     * The default time before an authentication token is expired from the cache
      */
-    lazy val DefaultTokenCacheExpiration: FiniteDuration = 15 minutes
+    lazy val TokenCacheLifetime: Duration = 15 minutes
 
+    /**
+     * The default time before a [[Node]] is expired from the node cache
+     */
+    lazy val NodeCacheLifetime: Duration = 30 minutes
+
+    /**
+     * Json cache default lifetime
+     */
+    lazy val JsonCacheLifetime : Duration = 2 hours
+
+    /**
+     * Id cache default lifetime
+     */
+    lazy val IdCacheLifetime : Duration = Duration.Inf
+
+    /**
+     * The maximum depth to which the tree will be traversed by get requests
+     */
+    lazy val MaximumTreeTraversalDepth = 3
   }
 
   /**
@@ -82,9 +102,11 @@ package object facade {
                           cwsUser : Option[String],
                           cwsPassword : Option[String],
                           pathExpansions : mutable.Map[String, String],
+                          nodeCacheLifetime : Duration,
                           tokenCacheLifetime : Duration,
                           idCacheLifetime : Duration,
-                          jsonCacheLifetime : Duration)
+                          jsonCacheLifetime : Duration,
+                          maximumTreeTraversalDepth: Int)
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
@@ -110,9 +132,11 @@ package object facade {
         cwsUser = config.getOptional[String]("facade.cws.user"),
         cwsPassword = config.getOptional[String]("facade.cws.password"),
         pathExpansions = mapPathExpansions(config),
-        tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(SystemConstants.DefaultTokenCacheExpiration),
-        idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(Duration.Inf),
-        jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(Duration.Inf),
+        nodeCacheLifetime = config.getOptional[Duration]("facade.node.cache.lifetime").getOrElse(SystemConstants.NodeCacheLifetime),
+        tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(SystemConstants.TokenCacheLifetime),
+        idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(SystemConstants.IdCacheLifetime),
+        jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(JsonCacheLifetime),
+        maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants.MaximumTreeTraversalDepth)
       )
     }
   }

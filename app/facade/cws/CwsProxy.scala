@@ -37,6 +37,6 @@ trait CwsProxy {
    * @param id the id of the node
    * @return a [[Future]] wrapping a [[CwsProxyResult]]
    */
-  def getNodeById(id : Long) : Future[CwsProxyResult[Node]]
+  def nodeById(id : Long) : Future[CwsProxyResult[Node]]
 
 }

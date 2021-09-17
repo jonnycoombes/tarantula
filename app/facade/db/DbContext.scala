@@ -27,13 +27,13 @@ trait DbContext {
    * @param path a list of path elements, which when combined form a complete relative path of the form A/B/C
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeCoreDetails]] instance or a [[Throwable]]
    */
-  def queryNodeDetailsByPath(path : List[String]) : Future[DbContextResult[NodeCoreDetails]]
+  def queryDetailsByPath(path : List[String]) : Future[DbContextResult[NodeCoreDetails]]
 
   /**
    * Returns a list of the child ids for a given node
-   * @param id the parent id
+   * @param details the [[NodeCoreDetails]] for the parent
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
    */
-  def queryNodeChildren(id : Long) : Future[DbContextResult[List[Long]]]
+  def queryChildrenDetails(details : NodeCoreDetails) : Future[DbContextResult[List[NodeCoreDetails]]]
 
 }

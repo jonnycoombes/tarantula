@@ -3,13 +3,14 @@ package facade.repository
 import facade._
 import facade.cws.CwsProxy
 import facade.db.{DbContext, NodeCoreDetails}
-import play.api.cache.{AsyncCacheApi, NamedCache}
+import play.api.cache.{AsyncCacheApi, NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.{JsArray, JsObject, Json}
 import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
 /**
@@ -28,7 +29,7 @@ import scala.concurrent.Future
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
-                                  @NamedCache("json-cache") cache: AsyncCacheApi,
+                                  @NamedCache("json-cache") jsonCache: SyncCacheApi,
                                   dbContext: DbContext,
                                   cwsProxy: CwsProxy,
                                   implicit val repositoryExecutionContext: RepositoryExecutionContext)
@@ -70,13 +71,13 @@ class DefaultRepository @Inject()(configuration: Configuration,
     serviceHealth map { s =>
       val serverInfo = s._1
       val schemaVersion = s._2
-      if (serverInfo.isRight && schemaVersion.isRight){
+      if (serverInfo.isRight && schemaVersion.isRight) {
         RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get)
-      }else if (serverInfo.isRight && schemaVersion.isLeft) {
+      } else if (serverInfo.isRight && schemaVersion.isLeft) {
         RepositoryState(facadeConfig, serverInfo.toOption.get)
-      }else if (serverInfo.isLeft && schemaVersion.isLeft){
+      } else if (serverInfo.isLeft && schemaVersion.isLeft) {
         RepositoryState(facadeConfig)
-      }else{
+      } else {
         RepositoryState(facadeConfig, schemaVersion.toOption.get)
       }
     }
@@ -86,21 +87,22 @@ class DefaultRepository @Inject()(configuration: Configuration,
   /**
    * Takes a path and then applies any relevant path expansions. Basically, the first element in the path is examined, and if it appears
    * in the currently configured [[FacadeConfig]] path expansions map, it is replaced with the elements in this map
+   *
    * @param path the path to apply expansion to
    * @return an expanded path
    */
-  private def applyPathExpansions(path : List[String]) :  List[String] = {
+  private def applyPathExpansions(path: List[String]): List[String] = {
     path match {
       case Nil => path
       case head :: tail => {
-          facadeConfig.pathExpansions.get(head) match {
-            case Some(expansion) => {
-              expansion.split('/').toList  ++ tail
-            }
-            case None => {
-              head :: tail
-            }
+        facadeConfig.pathExpansions.get(head) match {
+          case Some(expansion) => {
+            expansion.split('/').toList ++ tail
           }
+          case None => {
+            head :: tail
+          }
+        }
       }
     }
   }
@@ -111,7 +113,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
   override def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]] = {
-    val nodeId= dbContext.queryNodeDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
+    val nodeId = dbContext.queryDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
     nodeId map {
       case Right(id) => Right(id)
       case Left(t) => Left(t)
@@ -119,24 +121,65 @@ class DefaultRepository @Inject()(configuration: Configuration,
   }
 
   /**
-   * Recursively renders a node to Json, returning a [[Future]]
-   * @param acc accumlated [[JsObject]] which will ultimately contain the completed rendition
-   * @param id the id of the node to render
-   * @param depth the depth to depth
+   * Recursively renders a node to Json, returning a [[Future]]. This method is cache aware
+   *
+   * @param details the [[NodeCoreDetails]] of the node to render
+   * @param depth   the depth to depth
    * @return
    */
-  private def renderNode(acc : JsObject, id : Long, depth : Int) : Future[JsObject] = ???
+  private def recursiveRender(details: NodeCoreDetails, depth: Int): Future[JsObject] = {
+    log.trace(s"Rendering ${details} at depth=${depth}")
+    cwsProxy.nodeById(details.dataId) flatMap {
+      case Right(node) => {
+
+        val rendered = jsonCache.get[JsObject](details.dataId.toHexString) match {
+          case Some(json) => {
+            log.trace(s"Json cache *hit* for id=${details.dataId}")
+            json
+          }
+          case None => {
+            log.trace(s"Json cache *miss* for id=${details.dataId}")
+            val json = JsonRenderers.renderNodeToJson(node)
+            jsonCache.set(details.dataId.toHexString, json, facadeConfig.jsonCacheLifetime)
+            json
+          }
+        }
+
+        depth match {
+          case 0 => {
+            Future.successful(rendered)
+          }
+          case _ =>
+            dbContext.queryChildrenDetails(details) flatMap {
+              case Right(l) => {
+                Future.sequence(l.map(recursiveRender(_, depth - 1))) map { children =>
+                  if (children.isEmpty){
+                    rendered
+                  }else {
+                    rendered ++ Json.obj("children" -> JsArray(children))
+                  }
+                }
+              }
+              case Left(t) => Future.successful(Json.obj())
+            }
+        }
+      }
+      case Left(t) => {
+        Future.successful(Json.obj("id" -> details.dataId, "unsupportedNodeType"-> true))
+      }
+    }
+  }
 
   /**
    * Renders a node into a [[JsObject]] representation
    *
-   * @param id the id for the node
+   * @param details the [[NodeCoreDetails]] for the node
    * @return a [[JsObject]] representing the node
    */
-  override def renderNode(id: Long, depth : Int): Future[RepositoryResult[JsObject]] = {
-    log.trace(s"Rendering node [${id}, depth=${depth}]")
-    renderNode(Json.obj(), id, depth) map { rendition =>
-      Right(rendition)
+  override def renderNode(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
+    log.trace(s"Rendering node [${details}, depth=${depth}]")
+    recursiveRender(details, depth).map{
+      Right(_)
     } recover {
       case t => Left(t)
     }

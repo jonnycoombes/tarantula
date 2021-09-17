@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class RetrievalController @Inject()(val cc: ControllerComponents,
                                     val system: ActorSystem,
                                     val configuration: Configuration,
-                                    val repository : Repository,
+                                    val repository: Repository,
                                     implicit val ec: ExecutionContext) extends AbstractController(cc) {
 
   /**
@@ -29,30 +29,35 @@ class RetrievalController @Inject()(val cc: ControllerComponents,
 
   /**
    * The main retrieval controller
-   * @param path the path relating to the retrieval request
-   * @param depth the depth of the retrieval (meta-data) queries only. Defaults to 1.
-   * @param meta true if the meta is to be returned, false otherwise. Defaults to true.
+   *
+   * @param path    the path relating to the retrieval request
+   * @param depth   the depth of the retrieval (meta-data) queries only. Defaults to 1.
+   * @param meta    true if the meta is to be returned, false otherwise. Defaults to true.
    * @param content true if the content relating to the path should be retrieved, false otherwise.  Defaults to false.
    * @param version if retrieving content, the version to be retrieved.
    * @return
    */
-  def get(path: String, depth : Int, content : Boolean, version : Int): Action[AnyContent] = Action.async {
-    val resolutionFuture = repository.resolvePath(path.split('/').toList)
-    resolutionFuture flatMap {
-      case Right(details) => {
-        repository.renderNode(details.dataId, depth) map {
-          case Right(rendition) => {
-            Ok(ResponseHelpers.success(rendition))
-          }
-          case Left(t) => {
-            Ok(ResponseHelpers.failure(JsString(t.getMessage)))
+  def get(path: String, depth: Int, content: Boolean, version: Int): Action[AnyContent] = Action.async {
+    if (depth > facadeConfig.maximumTreeTraversalDepth) {
+      Future.successful(Ok(ResponseHelpers.failure(JsString(s"Please don't try and exceed the maximum tree traversal depth of " +
+        s"${facadeConfig.maximumTreeTraversalDepth}"))))
+    }else {
+      val resolutionFuture = repository.resolvePath(path.split('/').toList)
+      resolutionFuture flatMap {
+        case Right(details) => {
+          repository.renderNode(details, depth) map {
+            case Right(rendition) => {
+              Ok(ResponseHelpers.success(rendition))
+            }
+            case Left(t) => {
+              Ok(ResponseHelpers.failure(JsString(t.getMessage)))
+            }
           }
         }
-      }
-      case Left(t) => {
-        Future.successful(Ok(ResponseHelpers.failure(JsString(t.getMessage))))
+        case Left(t) => {
+          Future.successful(Ok(ResponseHelpers.failure(JsString(t.getMessage))))
+        }
       }
     }
   }
-
 }
