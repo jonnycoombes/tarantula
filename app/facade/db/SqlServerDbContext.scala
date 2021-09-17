@@ -189,6 +189,20 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
       }
     }
   }
+
+  /**
+   * Returns a list of the child ids for a given node
+   *
+   * @param id the parent id
+   * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
+   */
+  override def queryNodeChildren(id: Long): Future[DbContextResult[List[Long]]] = {
+    Future{
+      blocking{
+        Right(List())
+      }
+    }
+  }
 }
 
 /**
@@ -210,6 +224,16 @@ object SqlServerDbContext {
     """select ParentID, DataID, Name, SubType, OriginDataID
                                                             from DTreeCore
                                                               where ParentID = {p1} and Name = {p2} and DataID > 0""")
+
+  /**
+   * SQL used to retrieve a list of child nodes for a given parent id
+   */
+  lazy val nodeChildrenById : SimpleSql[Row] = SQL(
+    """
+      |select DataID
+      |   from DTreeCore
+      |     where ParentID = {p1}
+      |""".stripMargin)
 
   /**
    * Parser for handling DTreeCore subset

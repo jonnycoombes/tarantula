@@ -1,11 +1,11 @@
 package facade.repository
 
 import facade._
-import facade.cws.{CwsProxy, JsonRenderers}
+import facade.cws.CwsProxy
 import facade.db.{DbContext, NodeCoreDetails}
 import play.api.cache.{AsyncCacheApi, NamedCache}
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.JsObject
+import play.api.libs.json.{JsObject, Json}
 import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
@@ -119,29 +119,26 @@ class DefaultRepository @Inject()(configuration: Configuration,
   }
 
   /**
+   * Recursively renders a node to Json, returning a [[Future]]
+   * @param acc accumlated [[JsObject]] which will ultimately contain the completed rendition
+   * @param id the id of the node to render
+   * @param depth the depth to depth
+   * @return
+   */
+  private def renderNode(acc : JsObject, id : Long, depth : Int) : Future[JsObject] = ???
+
+  /**
    * Renders a node into a [[JsObject]] representation
    *
    * @param id the id for the node
    * @return a [[JsObject]] representing the node
    */
-  override def renderNode(id: Long): Future[RepositoryResult[JsObject]] = {
-    cache.get[JsObject](id.toHexString) flatMap {
-      case Some(rendition) => {
-        log.trace(s"Json cache *hit* for node with id ${id}")
-        Future.successful(Right(rendition))
-      }
-      case None => {
-        log.trace(s"Json cache *miss* for node with id ${id}")
-        cwsProxy.getNodeById(id) flatMap {
-          case Right(node) => {
-              val rendition = JsonRenderers.renderNodeToJson(node)
-              cache.set(id.toHexString, rendition, facadeConfig.jsonCacheLifetime) map { _ =>
-                  Right(rendition)
-              }
-          }
-          case Left(t) => Future.successful(Left(t))
-        }
-      }
+  override def renderNode(id: Long, depth : Int): Future[RepositoryResult[JsObject]] = {
+    log.trace(s"Rendering node [${id}, depth=${depth}]")
+    renderNode(Json.obj(), id, depth) map { rendition =>
+      Right(rendition)
+    } recover {
+      case t => Left(t)
     }
   }
 }

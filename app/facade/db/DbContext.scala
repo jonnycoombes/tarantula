@@ -29,4 +29,11 @@ trait DbContext {
    */
   def queryNodeDetailsByPath(path : List[String]) : Future[DbContextResult[NodeCoreDetails]]
 
+  /**
+   * Returns a list of the child ids for a given node
+   * @param id the parent id
+   * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
+   */
+  def queryNodeChildren(id : Long) : Future[DbContextResult[List[Long]]]
+
 }

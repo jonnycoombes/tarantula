@@ -40,7 +40,7 @@ class RetrievalController @Inject()(val cc: ControllerComponents,
     val resolutionFuture = repository.resolvePath(path.split('/').toList)
     resolutionFuture flatMap {
       case Right(details) => {
-        repository.renderNode(details.dataId) map {
+        repository.renderNode(details.dataId, depth) map {
           case Right(rendition) => {
             Ok(ResponseHelpers.success(rendition))
           }

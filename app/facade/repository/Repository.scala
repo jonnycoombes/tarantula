@@ -33,8 +33,9 @@ trait Repository {
   /**
    * Renders a node into a [[JsObject]] representation
    * @param id the id for the node
+   * @param depth the depth of the rendition (number of levels of children)
    * @return a [[JsObject]] representing the node
    */
-  def renderNode(id : Long) : Future[RepositoryResult[JsObject]]
+  def renderNode(id : Long, depth : Int) : Future[RepositoryResult[JsObject]]
 
 }
