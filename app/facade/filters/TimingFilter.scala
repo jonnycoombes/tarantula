@@ -21,7 +21,7 @@ class TimingFilter @Inject()(implicit val mat: Materializer, ec: ExecutionContex
     val startTime = System.currentTimeMillis()
     f(header).map { result =>
       val elapsed = System.currentTimeMillis() - startTime
-      log.trace(s"[${header.id}, ${header.remoteAddress}, ${header.method}, ${header.path}, ${elapsed.toString}]")
+      log.trace(s"[${header.id}, ${header.remoteAddress}, ${header.method}, ${header.path}, ${header.rawQueryString}, ${elapsed.toString}]")
       result.withHeaders(FacadeHeaders.TimingsHeader -> elapsed.toString)
     }
 

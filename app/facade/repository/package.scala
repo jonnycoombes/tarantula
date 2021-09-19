@@ -22,7 +22,17 @@ package object repository {
   @Singleton
   class RepositoryExecutionContext @Inject()(system : ActorSystem) extends CustomExecutionContext(system, "facade.repository.dispatcher")
 
-
+  /**
+   * Contains the current repository state, including information as to the availability of the underlying DB and OTCS instance
+   * @param version the current version of the Facade
+   * @param schemaVersion the current underlying schema version (OTCS)
+   * @param systemIdentifier the user-defined system identifier
+   * @param status the current [[Status]]
+   * @param message any useful messages to be relayed back to the client
+   * @param serverVersion the OTCS server version
+   * @param serverLanguage the OTCS server configured language
+   * @param serverDateTime the current OTCS server date and time
+   */
   case class RepositoryState (version: String,
                               schemaVersion : Option[String],
                               systemIdentifier : String,
@@ -99,11 +109,6 @@ package object repository {
   }
 
   /**
-   * A repository path is just a (non-empty) list of path elements, parsed from a string such as "/Enterprise/Business Workspaces/100232323"
-   */
-  type RepositoryPath = List[String]
-
-  /**
    * The repository path separation character
    */
   lazy val RepositoryPathSeparator = '/'
@@ -113,12 +118,20 @@ package object repository {
    * @param s a string of the form A/B/C/etc
    * @return a [[RepositoryPath]]
    */
-  implicit def stringToRepositoryPath(s : String) : RepositoryPath = {
+  implicit def splitReppositoryPath(s : String) : List[String] = {
     if (s.isEmpty) {
         List.empty[String]
     } else {
       s.split(RepositoryPathSeparator).toList
     }
   }
+
+  /**
+   * Returned by some repository methods (e.g. content downloads)
+   * @param file a temporary file location
+   * @param length the length of the file
+   * @param contentType the content/MIME type of the file
+   */
+  case class FileInformation(file : java.io.File, length : Long, contentType : String)
 
 }

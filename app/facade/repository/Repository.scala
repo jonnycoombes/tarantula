@@ -28,7 +28,7 @@ trait Repository {
    * Takes a path and attempts to resolve it to an underlying repository id (in the case of OTCS, this will be a DataID)
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
-  def resolvePath(path : RepositoryPath) : Future[RepositoryResult[NodeCoreDetails]]
+  def resolvePath(path : List[String]) : Future[RepositoryResult[NodeCoreDetails]]
 
   /**
    * Renders a node into a [[JsObject]] representation
@@ -36,6 +36,14 @@ trait Repository {
    * @param depth the depth of the rendition (number of levels of children)
    * @return a [[JsObject]] representing the node
    */
-  def renderNode(details : NodeCoreDetails, depth : Int) : Future[RepositoryResult[JsObject]]
+  def renderNodeToJson(details : NodeCoreDetails, depth : Int) : Future[RepositoryResult[JsObject]]
+
+  /**
+   * Retrieve the contents of a given node (i.e. document)
+   * @param details the [[NodeCoreDetails]] associated with the document
+   * @param version the version to retrieve. If set to None, then the latest version will be retrieved
+   * @return a [[FileInformation]] instance containing details about the temporary file location for the file
+   */
+  def retrieveNodeContent(details : NodeCoreDetails, version : Option[Int]) : Future[RepositoryResult[FileInformation]]
 
 }

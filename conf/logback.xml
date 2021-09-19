@@ -28,7 +28,7 @@
     <logger name="akka" level="OFF" />
     <logger name="facade" level="DEBUG"/>
     <logger name="facade-repository" level="INFO"/>
-    <logger name="facade-timings" level="OFF" />
+    <logger name="facade-timings" level="TRACE" />
     <logger name="facade-cws-proxy" level="INFO" />
     <logger name="facade-db-context" level="INFO" />
     <logger name="com.zaxxer.hikari.pool.HikariPool" level="INFO" />

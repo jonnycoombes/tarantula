@@ -3,14 +3,13 @@ package facade.repository
 import facade._
 import facade.cws.CwsProxy
 import facade.db.{DbContext, NodeCoreDetails}
-import play.api.cache.{AsyncCacheApi, NamedCache, SyncCacheApi}
+import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsArray, JsObject, Json}
 import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
 import javax.inject.{Inject, Singleton}
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
 /**
@@ -85,6 +84,19 @@ class DefaultRepository @Inject()(configuration: Configuration,
   }
 
   /**
+   * Takes a path and attempts to resolve it to an underlying repository id (in the case of OTCS, this will be a DataID)
+   *
+   * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
+   */
+  override def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]] = {
+    val nodeId = dbContext.queryDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
+    nodeId map {
+      case Right(id) => Right(id)
+      case Left(t) => Left(t)
+    }
+  }
+
+  /**
    * Takes a path and then applies any relevant path expansions. Basically, the first element in the path is examined, and if it appears
    * in the currently configured [[FacadeConfig]] path expansions map, it is replaced with the elements in this map
    *
@@ -108,16 +120,29 @@ class DefaultRepository @Inject()(configuration: Configuration,
   }
 
   /**
-   * Takes a path and attempts to resolve it to an underlying repository id (in the case of OTCS, this will be a DataID)
+   * Renders a node into a [[JsObject]] representation
    *
-   * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
+   * @param details the [[NodeCoreDetails]] for the node
+   * @return a [[JsObject]] representing the node
    */
-  override def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]] = {
-    val nodeId = dbContext.queryDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
-    nodeId map {
-      case Right(id) => Right(id)
-      case Left(t) => Left(t)
+  override def renderNodeToJson(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
+    log.trace(s"Rendering node [${details}, depth=${depth}]")
+    recursiveRender(details, depth).map{
+      Right(_)
+    } recover {
+      case t => Left(t)
     }
+  }
+
+  /**
+   * Retrieve the contents of a given node (i.e. document)
+   *
+   * @param details the [[NodeCoreDetails]] associated with the document
+   * @param version the version to retrieve. If set to None, then the latest version will be retrieved
+   * @return a [[FileInformation]] instance containing details about the temporary file location for the file
+   */
+  override def retrieveNodeContent(details: NodeCoreDetails, version: Option[Int]): Future[RepositoryResult[FileInformation]] = {
+
   }
 
   /**
@@ -131,7 +156,6 @@ class DefaultRepository @Inject()(configuration: Configuration,
     log.trace(s"Rendering ${details} at depth=${depth}")
     cwsProxy.nodeById(details.dataId) flatMap {
       case Right(node) => {
-
         val rendered = jsonCache.get[JsObject](details.dataId.toHexString) match {
           case Some(json) => {
             log.trace(s"Json cache *hit* for id=${details.dataId}")
@@ -167,21 +191,6 @@ class DefaultRepository @Inject()(configuration: Configuration,
       case Left(t) => {
         Future.successful(Json.obj("id" -> details.dataId, "unsupportedNodeType"-> true))
       }
-    }
-  }
-
-  /**
-   * Renders a node into a [[JsObject]] representation
-   *
-   * @param details the [[NodeCoreDetails]] for the node
-   * @return a [[JsObject]] representing the node
-   */
-  override def renderNode(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
-    log.trace(s"Rendering node [${details}, depth=${depth}]")
-    recursiveRender(details, depth).map{
-      Right(_)
-    } recover {
-      case t => Left(t)
     }
   }
 }

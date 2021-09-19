@@ -11,11 +11,11 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class RetrievalController @Inject()(val cc: ControllerComponents,
-                                    val system: ActorSystem,
-                                    val configuration: Configuration,
-                                    val repository: Repository,
-                                    implicit val ec: ExecutionContext) extends AbstractController(cc) {
+class NodeController @Inject()(val cc: ControllerComponents,
+                               val system: ActorSystem,
+                               val configuration: Configuration,
+                               val repository: Repository,
+                               implicit val ec: ExecutionContext) extends AbstractController(cc) {
 
   /**
    * The logger for this controller
@@ -37,15 +37,41 @@ class RetrievalController @Inject()(val cc: ControllerComponents,
    * @param version if retrieving content, the version to be retrieved.
    * @return
    */
-  def get(path: String, depth: Int, content: Boolean, version: Int): Action[AnyContent] = Action.async {
+  def get(path: String, depth: Int, content: Boolean, version: Int): Action[AnyContent] = {
+    if (content) {
+      retrieveContent(path, version)
+    } else {
+      retrieveMetaData(path, depth)
+    }
+  }
+
+  /**
+   *
+   * @param path
+   * @param version
+   * @return
+   */
+  private def retrieveContent(path: String, version : Int) : Action[AnyContent] = Action.async{
+    val resolution = repository.resolvePath(path.split('/').toList)
+
+    Future.successful(Ok(ResponseHelpers.success(JsString("You have requested a download of content"))))
+  }
+
+  /**
+   *
+   * @param path
+   * @param depth
+   * @return
+   */
+  private def retrieveMetaData(path : String, depth : Int) : Action[AnyContent] = Action.async{
     if (depth > facadeConfig.maximumTreeTraversalDepth) {
       Future.successful(Ok(ResponseHelpers.failure(JsString(s"Please don't try and exceed the maximum tree traversal depth of " +
         s"${facadeConfig.maximumTreeTraversalDepth}"))))
     }else {
-      val resolutionFuture = repository.resolvePath(path.split('/').toList)
-      resolutionFuture flatMap {
+      val resolution = repository.resolvePath(path.split('/').toList)
+      resolution flatMap {
         case Right(details) => {
-          repository.renderNode(details, depth) map {
+          repository.renderNodeToJson(details, depth) map {
             case Right(rendition) => {
               Ok(ResponseHelpers.success(rendition))
             }
@@ -60,4 +86,5 @@ class RetrievalController @Inject()(val cc: ControllerComponents,
       }
     }
   }
+
 }

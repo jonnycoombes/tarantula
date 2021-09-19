@@ -5,7 +5,7 @@ import com.opentext.cws.authentication._
 import com.opentext.cws.docman.{DocumentManagement_Service, Node}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
-import play.api.cache.{AsyncCacheApi, NamedCache, SyncCacheApi}
+import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
@@ -151,7 +151,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         tokenElement.addTextNode(resolveToken())
         true
       }catch{
-        case t : Throwable => {
+        case _ : Throwable => {
           log.error("Unable to inject required outbound authentication token")
           log.error("Check previous errors relating to OTCS authentication")
           true

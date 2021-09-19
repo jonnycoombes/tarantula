@@ -1,10 +1,10 @@
 import com.typesafe.config.ConfigObject
 import facade.SystemConstants.JsonCacheLifetime
-import facade.db.{DbContext, nodeCoreDetailsWrites}
+import facade.db.DbContext
 import play.api.Configuration
 
 import scala.collection.mutable
-import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.language.postfixOps
 
@@ -91,6 +91,11 @@ package object facade {
      * The maximum depth to which the tree will be traversed by get requests
      */
     lazy val MaximumTreeTraversalDepth = 3
+
+    /**
+     * The default database schema to use
+     */
+    lazy val DefaultDbSchema = "dbo"
   }
 
   /**
@@ -106,7 +111,8 @@ package object facade {
                           tokenCacheLifetime : Duration,
                           idCacheLifetime : Duration,
                           jsonCacheLifetime : Duration,
-                          maximumTreeTraversalDepth: Int)
+                          maximumTreeTraversalDepth: Int,
+                          dbSchema : String)
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
@@ -136,7 +142,9 @@ package object facade {
         tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(SystemConstants.TokenCacheLifetime),
         idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(SystemConstants.IdCacheLifetime),
         jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(JsonCacheLifetime),
-        maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants.MaximumTreeTraversalDepth)
+        maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants
+          .MaximumTreeTraversalDepth),
+        dbSchema = config.getOptional[String]("facade.db.schema").getOrElse(SystemConstants.DefaultDbSchema)
       )
     }
   }
