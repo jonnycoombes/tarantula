@@ -1,5 +1,6 @@
 package facade.repository
 
+import facade.cws.DownloadedContent
 import facade.db.NodeCoreDetails
 import play.api.libs.json.JsObject
 
@@ -42,8 +43,8 @@ trait Repository {
    * Retrieve the contents of a given node (i.e. document)
    * @param details the [[NodeCoreDetails]] associated with the document
    * @param version the version to retrieve. If set to None, then the latest version will be retrieved
-   * @return a [[FileInformation]] instance containing details about the temporary file location for the file
+   * @return a [[DownloadedContent]] instance containing details about the temporary file location for the file
    */
-  def retrieveNodeContent(details : NodeCoreDetails, version : Option[Int]) : Future[RepositoryResult[FileInformation]]
+  def retrieveNodeContent(details : NodeCoreDetails, version : Option[Long]) : Future[RepositoryResult[DownloadedContent]]
 
 }

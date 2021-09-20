@@ -2,13 +2,16 @@ package facade.cws
 
 import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
+import com.opentext.cws.content.ContentService_Service
 import com.opentext.cws.docman.{DocumentManagement_Service, Node}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
+import org.jvnet.staxex.StreamingDataHandler
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 
+import java.nio.file.{CopyOption, Files, StandardCopyOption}
 import java.util
 import javax.inject.{Inject, Singleton}
 import javax.xml.namespace.QName
@@ -35,6 +38,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
                                 authenticationService: Authentication_Service,
                                 adminService: AdminService_Service,
                                 documentManagementService: DocumentManagement_Service,
+                                contentService: ContentService_Service,
                                 implicit val cwsProxyExecutionContext: CwsProxyExecutionContext) extends CwsProxy with
   SOAPHandler[SOAPMessageContext] {
 
@@ -51,19 +55,25 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
   if (facadeConfig.cwsPassword.isEmpty) log.warn("No CWS password has been supplied, please check the system configuration")
 
   /**
-   * Pre-bound CWS authentication client
+   * Late bound CWS authentication client
    */
   private lazy val authClient = authenticationService.basicHttpBindingAuthentication
 
   /**
-   * Pre-bound CWS admin client
+   * Late bound bound CWS admin client
    */
   private lazy val adminClient = adminService.basicHttpBindingAdminService(this)
 
   /**
-   * Pre-bound CWS document management client
+   * Late bound bound CWS document management client
    */
   private lazy val docManClient = documentManagementService.basicHttpBindingDocumentManagement(this)
+
+  /**
+   * Late bound CWS content service client
+   */
+  private lazy val contentClient = contentService.basicHttpBindingContentService(this)
+
 
   lifecycle.addStopHook { () =>
     Future.successful({
@@ -101,28 +111,24 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       try {
         val result = Await.result(authenticate(), 5 seconds)
         result match {
-          case Right(s) => {
+          case Right(s) =>
             val token = s.getAuthenticationToken
             log.trace("Caching authentication token")
             tokenCache.set("cachedToken", token, facadeConfig.tokenCacheLifetime)
             token
-          }
-          case Left(ex) => {
+          case Left(ex) =>
             log.warn("Failed to obtain an authentication token")
             throw ex
-          }
         }
       } catch {
-        case ex : Exception => {
+        case ex : Exception =>
           log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
           log.error("Unable to perform authentication against OTCS - check service status")
           throw new Throwable("OTCS authentication failed. Check service status & config")
-        }
-        case ex : Throwable => {
+        case ex : Throwable =>
           log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
           log.error("Unable to perform authentication against CWS - check service status")
           throw new Throwable("OTCS authentication failed. Check service status & config")
-        }
       }
     }
   }
@@ -151,11 +157,10 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         tokenElement.addTextNode(resolveToken())
         true
       }catch{
-        case _ : Throwable => {
+        case _ : Throwable =>
           log.error("Unable to inject required outbound authentication token")
           log.error("Check previous errors relating to OTCS authentication")
           true
-        }
       }
     } else {
       val headerElements = message.getSOAPPart.getEnvelope.getHeader.examineAllHeaderElements
@@ -196,10 +201,9 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       adminClient.getServerInfo map { info: ServerInfo =>
         Right(info)
       } recover {
-        case t => {
+        case t =>
           log.error(t.getMessage)
           Left(t)
-        }
       }
     }
   }
@@ -213,12 +217,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
   override def nodeById(id: Long): Future[CwsProxyResult[Node]] = {
     blocking{
       nodeCache.get[Node](id.toHexString) match {
-        case Some(node) => {
-          log.trace(s"Node cache *hit* for id=${id}")
+        case Some(node) =>
+          log.trace(s"Node cache *hit* for id=$id")
           Future.successful(Right(node))
-        }
-        case None => {
-          log.trace(s"Node cache *miss* for id=${id}")
+        case None =>
+          log.trace(s"Node cache *miss* for id=$id")
           docManClient.getNode(id) map { node : Node =>
             if (node != null) {
               nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
@@ -227,12 +230,37 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               Left(new Throwable(s"Looks as if the node type for id=${id} isn't supported by CWS"))
             }
           } recover {
-            case t => {
+            case t =>
               log.error(t.getMessage)
               Left(t)
-            }
+          }
+      }
+    }
+  }
+
+  /**
+   * Attempts to retrieve the content associated with a given node version
+   *
+   * @param id      the id for the node
+   * @param versionNumber the version to download.  If *None*, the latest version will be downloaded
+   * @return A [[DownloadedContent]] instance containing the contents along with length and content type information
+   */
+  override def downloadNodeVersion(id: Long, versionNumber: Option[Long]): Future[CwsProxyResult[DownloadedContent]] = {
+    log.trace(s"Content retrieval [$id, $versionNumber]")
+    blocking {
+      docManClient.getVersion(id, versionNumber.getOrElse(0)) flatMap { version =>
+        docManClient.getVersionContentsContext(id, versionNumber.getOrElse(0)) flatMap { cookie =>
+          contentClient.downloadContent(cookie) map { handler =>
+            val tempFile = play.libs.Files.singletonTemporaryFileCreator().asScala().create(prefix = "fcs", suffix = s".${version.getFileType}").path.toFile
+            Files.copy(handler.getInputStream, tempFile.toPath, StandardCopyOption.REPLACE_EXISTING)
+            log.trace(s"Retrieved ${tempFile.length} bytes")
+            Right(DownloadedContent(tempFile, tempFile.length, version.getMimeType))
           }
         }
+      } recover {
+        case t =>
+          log.error(t.getMessage)
+          Left(t)
       }
     }
   }

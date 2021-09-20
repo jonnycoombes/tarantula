@@ -14,4 +14,6 @@ object Versions {
 
   lazy val PlayJodaVersion = "2.9.2"
 
+  lazy val JaxWsRtVersion = "3.0.2"
+
 }

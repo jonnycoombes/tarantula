@@ -126,12 +126,6 @@ package object repository {
     }
   }
 
-  /**
-   * Returned by some repository methods (e.g. content downloads)
-   * @param file a temporary file location
-   * @param length the length of the file
-   * @param contentType the content/MIME type of the file
-   */
-  case class FileInformation(file : java.io.File, length : Long, contentType : String)
+
 
 }

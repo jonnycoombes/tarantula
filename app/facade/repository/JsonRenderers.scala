@@ -44,29 +44,29 @@ object JsonRenderers {
 
     @inline def versionJson(version: Version): JsObject = {
       Json.obj(
-        "number" → version.getNumber,
-        "created" → new DateTime(version.getCreateDate.toGregorianCalendar.getTime),
-        "modified" → new DateTime(version.getModifyDate.toGregorianCalendar.getTime),
-        "filename" → version.getFilename,
-        "size" → version.getFileDataSize
+        "number" -> version.getNumber,
+        "created" ->  new DateTime(version.getCreateDate.toGregorianCalendar.getTime),
+        "modified" -> new DateTime(version.getModifyDate.toGregorianCalendar.getTime),
+        "filename" -> version.getFilename,
+        "size" -> version.getFileDataSize
       )
     }
 
     @tailrec
     def versionArray(accum: JsArray, versions: List[Version]): JsArray = {
       versions match {
-        case version :: tail ⇒ {
+        case version :: tail => {
           versionArray(accum :+ versionJson(version), tail)
         }
-        case Nil ⇒ accum
+        case Nil => accum
       }
     }
     Json.obj(
-      "current" → info.getVersionNum,
-      "mimeType" → info.getMimeType,
-      "size" → info.getFileDataSize.toInt,
-      "number"→ info.getVersionNum,
-      "all" → versionArray(JsArray(Seq.empty), info.getVersions.asScala.toList)
+      "current" -> info.getVersionNum,
+      "mimeType" -> info.getMimeType,
+      "size" -> info.getFileDataSize.toInt,
+      "number"-> info.getVersionNum,
+      "all" -> versionArray(JsArray(Seq.empty), info.getVersions.asScala.toList)
     )
   }
 
@@ -76,16 +76,16 @@ object JsonRenderers {
 
     @inline def groupEntry(group : AttributeGroup) = {
       Json.obj(
-        "category" → group.getDisplayName,
-        "values" → dataValues(Json.obj(), group.getValues.asScala.toList)
+        "category" -> group.getDisplayName,
+        "values" -> dataValues(Json.obj(), group.getValues.asScala.toList)
       )
     }
 
     @tailrec
     def attributeGroups(accum : JsArray, groups : List[AttributeGroup]) : JsArray = {
       groups match {
-        case Nil ⇒ accum
-        case group :: tail ⇒ {
+        case Nil => accum
+        case group :: tail => {
           attributeGroups(accum :+ groupEntry(group), tail)
         }
       }
@@ -94,34 +94,34 @@ object JsonRenderers {
     @tailrec
     def dataValues(accum : JsObject, values : List[DataValue]) :  JsObject = {
       values match {
-        case Nil ⇒ accum
-        case value::tail ⇒ {
-          dataValues(accum ++ Json.obj(value.getDescription → convertValuesToJsonArray(value)), tail)
+        case Nil => accum
+        case value::tail => {
+          dataValues(accum ++ Json.obj(value.getDescription -> convertValuesToJsonArray(value)), tail)
         }
       }
     }
 
     @inline def convertValuesToJsonArray(value : DataValue) : JsArray = {
       value match {
-        case v : BooleanValue ⇒ {
+        case v : BooleanValue => {
           JsArray(v.getValues.asScala.toList.map(JsBoolean(_)))
         }
-        case v: DateValue ⇒ {
-          JsArray(v.getValues.asScala.toList.map(dt ⇒
+        case v: DateValue => {
+          JsArray(v.getValues.asScala.toList.map(dt =>
             if (dt != null) {
               dateWriter.writes(new DateTime(dt.toGregorianCalendar.getTime))
             }else{
               JsString("")
             }))
         }
-        case v: IntegerValue ⇒ {
-          JsArray(v.getValues.asScala.toList.map(i ⇒ JsNumber(i.asInstanceOf[BigDecimal])))
+        case v: IntegerValue => {
+          JsArray(v.getValues.asScala.toList.map(i => JsNumber(i.asInstanceOf[BigDecimal])))
         }
-        case v : StringValue ⇒ {
+        case v : StringValue => {
           JsArray(v.getValues.asScala.toList.map(JsString))
         }
-        case v : RealValue ⇒ {
-          JsArray(v.getValues.asScala.toList.map(r ⇒ JsNumber(r.asInstanceOf[BigDecimal])))
+        case v : RealValue => {
+          JsArray(v.getValues.asScala.toList.map(r => JsNumber(r.asInstanceOf[BigDecimal])))
         }
       }
     }

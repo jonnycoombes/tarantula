@@ -39,4 +39,12 @@ trait CwsProxy {
    */
   def nodeById(id : Long) : Future[CwsProxyResult[Node]]
 
+  /**
+   * Attempts to retrieve the content associated with a given node version
+   * @param id the id for the node
+   * @param version the version to download.  If *None*, the latest version will be downloaded
+   * @return A [[DownloadedContent]] instance containing the contents along with length and content type information
+   */
+  def downloadNodeVersion(id : Long, version : Option[Long]) : Future[CwsProxyResult[DownloadedContent]];
+
 }

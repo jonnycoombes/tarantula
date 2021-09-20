@@ -1,7 +1,7 @@
 package facade.repository
 
 import facade._
-import facade.cws.CwsProxy
+import facade.cws.{CwsProxy, DownloadedContent}
 import facade.db.{DbContext, NodeCoreDetails}
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
@@ -106,16 +106,13 @@ class DefaultRepository @Inject()(configuration: Configuration,
   private def applyPathExpansions(path: List[String]): List[String] = {
     path match {
       case Nil => path
-      case head :: tail => {
+      case head :: tail =>
         facadeConfig.pathExpansions.get(head) match {
-          case Some(expansion) => {
+          case Some(expansion) =>
             expansion.split('/').toList ++ tail
-          }
-          case None => {
+          case None =>
             head :: tail
-          }
         }
-      }
     }
   }
 
@@ -126,7 +123,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @return a [[JsObject]] representing the node
    */
   override def renderNodeToJson(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
-    log.trace(s"Rendering node [${details}, depth=${depth}]")
+    log.trace(s"Rendering node [$details, depth=$depth]")
     recursiveRender(details, depth).map{
       Right(_)
     } recover {
@@ -141,8 +138,18 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @param version the version to retrieve. If set to None, then the latest version will be retrieved
    * @return a [[FileInformation]] instance containing details about the temporary file location for the file
    */
-  override def retrieveNodeContent(details: NodeCoreDetails, version: Option[Int]): Future[RepositoryResult[FileInformation]] = {
-
+  override def retrieveNodeContent(details: NodeCoreDetails, version: Option[Long]): Future[RepositoryResult[DownloadedContent]] = {
+    log.trace(s"Downloading content for $details")
+    cwsProxy.downloadNodeVersion(details.dataId, version) map {
+      case Right(info) =>
+        Right(info)
+      case Left(t) =>
+        Left(t)
+    } recover {
+      case t=>
+        log.error(s"Couldn't retrieve content for $details : '${t.getMessage}")
+        Left(t)
+    }
   }
 
   /**
@@ -153,44 +160,38 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @return
    */
   private def recursiveRender(details: NodeCoreDetails, depth: Int): Future[JsObject] = {
-    log.trace(s"Rendering ${details} at depth=${depth}")
+    log.trace(s"Rendering $details at depth=$depth")
     cwsProxy.nodeById(details.dataId) flatMap {
-      case Right(node) => {
-        val rendered = jsonCache.get[JsObject](details.dataId.toHexString) match {
-          case Some(json) => {
+      case Right(node) =>
+        val nodeAsJson = jsonCache.get[JsObject](details.dataId.toHexString) match {
+          case Some(json) =>
             log.trace(s"Json cache *hit* for id=${details.dataId}")
             json
-          }
-          case None => {
+          case None =>
             log.trace(s"Json cache *miss* for id=${details.dataId}")
             val json = JsonRenderers.renderNodeToJson(node)
             jsonCache.set(details.dataId.toHexString, json, facadeConfig.jsonCacheLifetime)
             json
-          }
         }
 
         depth match {
-          case 0 => {
-            Future.successful(rendered)
-          }
+          case 0 =>
+            Future.successful(nodeAsJson)
           case _ =>
             dbContext.queryChildrenDetails(details) flatMap {
-              case Right(l) => {
+              case Right(l) =>
                 Future.sequence(l.map(recursiveRender(_, depth - 1))) map { children =>
                   if (children.isEmpty){
-                    rendered
+                    nodeAsJson
                   }else {
-                    rendered ++ Json.obj("children" -> JsArray(children))
+                    nodeAsJson ++ Json.obj("children" -> JsArray(children))
                   }
                 }
-              }
-              case Left(t) => Future.successful(Json.obj())
+              case Left(_) => Future.successful(Json.obj())
             }
         }
-      }
-      case Left(t) => {
+      case Left(_) =>
         Future.successful(Json.obj("id" -> details.dataId, "unsupportedNodeType"-> true))
-      }
     }
   }
 }

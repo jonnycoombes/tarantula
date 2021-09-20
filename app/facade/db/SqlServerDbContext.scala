@@ -46,13 +46,11 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    private val facadeConfig = FacadeConfig(configuration)
 
   queryChildByName(None, "Enterprise") match {
-    case Right(details) => {
+    case Right(details) =>
       log.trace("Caching Enterprise details")
       cache.set("Enterprise", details, facadeConfig.idCacheLifetime)
-    }
-    case Left(ex) => {
+    case Left(ex) =>
       throw ex
-    }
   }
 
   lifecycle.addStopHook { () =>
@@ -138,23 +136,19 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
           prefix += segment
           val prefixCacheKey = prefix.toList.mkString("/")
           cache.get[NodeCoreDetails](prefixCacheKey) match {
-            case Some(details) => {
+            case Some(details) =>
               log.trace(s"Prefix cache *hit* for '${prefixCacheKey}'")
               result = Some(details)
-            }
-            case None => {
+            case None =>
               log.trace(s"Prefix cache *miss* for '${prefixCacheKey}'")
               queryChildByName(result, segment) match {
-                case Right(details) => {
+                case Right(details) =>
                   log.trace(s"Setting prefix cache entry for '${prefixCacheKey}' [${details}]")
                   cache.set(prefixCacheKey, details, facadeConfig.idCacheLifetime)
                   result = Some(details)
-                }
-                case Left(t) => {
+                case Left(t) =>
                   result = None
-                }
               }
-            }
           }
         }
         result
@@ -170,23 +164,19 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    */
   override def queryDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
     val combined = path.mkString("/")
-    log.trace(s"Lookup for path '${combined}'")
+    log.trace(s"Lookup for path '$combined'")
     cache.get[NodeCoreDetails](combined) match {
-      case Some(details) => {
+      case Some(details) =>
         log.trace(s"Full cache *hit* for '${combined}'")
         Future.successful(Right(details))
-      }
-      case None => {
+      case None =>
         log.trace(s"Full cache *miss* for '${combined}'")
         resolvePath(path) map {
-          case Some(details) => {
+          case Some(details) =>
             Right(details)
-          }
-          case None => {
+          case None =>
             Left(new Throwable(s"Could not resolve path '${URLDecoder.decode(combined, "UTF-8")}'"))
-          }
         }
-      }
     }
   }
 

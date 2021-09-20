@@ -17,4 +17,13 @@ package object cws {
    */
   @Singleton
   class CwsProxyExecutionContext @Inject()(system : ActorSystem) extends CustomExecutionContext(system, "facade.cws.dispatcher")
+
+  /**
+   * Returned by download methods (e.g. content downloads)
+   * @param file a temporary file location
+   * @param length the length of the file
+   * @param contentType the content/MIME type of the file
+   */
+  case class DownloadedContent(file : java.io.File, length : Long, contentType : String)
+
 }

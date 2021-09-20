@@ -14,7 +14,7 @@ GET /index controllers.Default.notFound
 GET /api/v1/ping    facade.controllers.PingController.ping()
 
 
-GET /api/v1/*path   facade.controllers.NodeController.get(path: String, depth : Int ?= 1, content : Boolean?= false, version : Int ?= 0)
+GET /api/v1/*path   facade.controllers.NodeController.get(path: String, depth : Int ?= 1, content : Boolean?= false, version : Option[Long])
 
 
       

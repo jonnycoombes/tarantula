@@ -1,6 +1,7 @@
 package facade.controllers
 
 import akka.actor.ActorSystem
+import akka.stream.scaladsl.FileIO
 import facade.repository._
 import facade.{FacadeConfig, LogNames}
 import play.api.libs.json.JsString
@@ -37,7 +38,7 @@ class NodeController @Inject()(val cc: ControllerComponents,
    * @param version if retrieving content, the version to be retrieved.
    * @return
    */
-  def get(path: String, depth: Int, content: Boolean, version: Int): Action[AnyContent] = {
+  def get(path: String, depth: Int, content: Boolean, version: Option[Long]): Action[AnyContent] = {
     if (content) {
       retrieveContent(path, version)
     } else {
@@ -51,10 +52,22 @@ class NodeController @Inject()(val cc: ControllerComponents,
    * @param version
    * @return
    */
-  private def retrieveContent(path: String, version : Int) : Action[AnyContent] = Action.async{
+  private def retrieveContent(path: String, version : Option[Long]) : Action[AnyContent] = Action.async {
     val resolution = repository.resolvePath(path.split('/').toList)
-
-    Future.successful(Ok(ResponseHelpers.success(JsString("You have requested a download of content"))))
+    resolution flatMap {
+      case Right(details) =>
+        repository.retrieveNodeContent(details, version) map {
+          case Right(info) =>
+            Ok.sendFile(
+              content = info.file,
+              inline = false,
+            ).withHeaders("Content-Type" -> info.contentType)
+          case Left(t) =>
+            Ok(ResponseHelpers.failure(JsString(t.getMessage)))
+        }
+      case Left(t) =>
+        Future.successful(Ok(ResponseHelpers.failure(JsString(t.getMessage))))
+    }
   }
 
   /**
