@@ -1,8 +1,9 @@
 package facade.db
 
+import akka.parboiled2.CharPredicate.General
 import anorm.SqlParser.scalar
 import anorm._
-import facade.db.SqlServerDbContext.{nodeChildrenById, nodeDetailsByNameSql, nodeDetailsParser, schemaVersionSql}
+import facade.db.SqlServerDbContext.{GeneralQueries, NodeQueries}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.db.Database
@@ -43,7 +44,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   /**
    * The current [[FacadeConfig]] instance
    */
-   private val facadeConfig = FacadeConfig(configuration)
+  private val facadeConfig = FacadeConfig(configuration)
 
   queryChildByName(None, "Enterprise") match {
     case Right(details) =>
@@ -70,7 +71,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
         try {
           db.withConnection { implicit c =>
             implicit val config: FacadeConfig = facadeConfig
-            Right(schemaVersionSql as scalar[String].single)
+            Right(GeneralQueries.schemaVersionSql as scalar[String].single)
           }
         } catch {
           case e: Throwable => Left(e)
@@ -82,7 +83,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   /**
    * Internal function which does the actual db query in order to try and lookup details based on an optional parentId and name
    *
-   * @param parentId parentId
+   * @param details an option containing the parent details
    * @param name     the name of the node to lookup
    * @return A [[DbContextResult]]
    */
@@ -91,7 +92,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
       db.withConnection { implicit c =>
         implicit val config: FacadeConfig = facadeConfig
         val parentId = details.fold(-1L)(d => deriveParentId(d))
-        val results = nodeDetailsByNameSql.on("p1" -> parentId).on("p2" -> name).as(nodeDetailsParser.*)
+        val results = NodeQueries.nodeDetailsByNameSql.on("p1" -> parentId).on("p2" -> name).as(nodeCoreDetailsParser.*)
         if (results.isEmpty) {
           Left(new Throwable("No node with that name exists"))
         } else {
@@ -99,7 +100,9 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
         }
       }
     } catch {
-      case e: Throwable => Left(e)
+      case t: Throwable =>
+        log.error(s"Query breakdown '${t.getMessage}")
+        Left(t)
     }
   }
 
@@ -187,16 +190,18 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
    */
   override def queryChildrenDetails(details: NodeCoreDetails): Future[DbContextResult[List[NodeCoreDetails]]] = {
-    Future{
-      blocking{
-        try{
-          db.withConnection{implicit c =>
-            implicit val config : FacadeConfig = facadeConfig
-            val parentId= deriveParentId(details)
-            Right(nodeChildrenById.on("p1" -> parentId).as(nodeDetailsParser.*))
+    Future {
+      blocking {
+        try {
+          db.withConnection { implicit c =>
+            implicit val config: FacadeConfig = facadeConfig
+            val parentId = deriveParentId(details)
+            Right(NodeQueries.nodeChildrenById.on("p1" -> parentId).as(nodeCoreDetailsParser.*))
           }
-        }catch{
-          case t: Throwable => Left(t)
+        } catch {
+          case t: Throwable =>
+            log.error(s"Query breakdown '${t.getMessage}")
+            Left(t)
         }
       }
     }
@@ -209,35 +214,38 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
  */
 object SqlServerDbContext {
 
-  /**
-   * SQL to retrieve the underlying OTCS schema version information from the kini table
-   */
-  def schemaVersionSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(s"select IniValue from ${config.dbSchema}.KIni where IniKeyword" +
-    s" = 'DatabaseVersion'")
+  object GeneralQueries {
+    /**
+     * SQL to retrieve the underlying OTCS schema version information from the kini table
+     */
+    def schemaVersionSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(s"select IniValue from ${config.dbSchema}.KIni where " +
+      s"IniKeyword = 'DatabaseVersion'")
 
-  /**
-   * SQL used to lookup a node based on name and parent id. Make sure that only positive DataID values are returned in order to cater for
-   * volumes, which have two different reciprocal values (one +ve, one -ve)
-   */
- def nodeDetailsByNameSql(implicit config : FacadeConfig): SimpleSql[Row] = SQL(
-    s"""select ParentID, DataID, Name, SubType, OriginDataID
+  }
+
+  object NodeQueries {
+
+
+
+    /**
+     * SQL used to lookup a node based on name and parent id. Make sure that only positive DataID values are returned in order to cater for
+     * volumes, which have two different reciprocal values (one +ve, one -ve)
+     */
+    def nodeDetailsByNameSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
+      s"""select ParentID, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
                                                             from ${config.dbSchema}.DTreeCore
                                                               where ParentID = {p1} and Name = {p2} and DataID > 0""")
 
-  /**
-   * SQL used to retrieve a list of child nodes for a given parent id
-   */
-  def nodeChildrenById(implicit config : FacadeConfig) : SimpleSql[Row] = SQL(
-    s"""
-      |select ParentID, DataID, Name, SubType, OriginDataID
-      |   from ${config.dbSchema}.DTreeCore
-      |     where ParentID = {p1}
-      |""".stripMargin)
+    /**
+     * SQL used to retrieve a list of child nodes for a given parent id
+     */
+    def nodeChildrenById(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
+      s"""
+         |select ParentID, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
+         |   from ${config.dbSchema}.DTreeCore
+         |     where ParentID = {p1}
+         |""".stripMargin)
 
-  /**
-   * Parser for handling DTreeCore subset
-   */
-  lazy val nodeDetailsParser: RowParser[NodeCoreDetails] = Macro.parser[NodeCoreDetails]("ParentID", "DataID", "Name",
-    "SubType", "OriginDataID")
+  }
 
 }

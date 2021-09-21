@@ -22,7 +22,7 @@ class PingController @Inject()(val cc: ControllerComponents,
   /**
    * The logger for this controller
    */
-  lazy val log: Logger = Logger(LogNames.MainLogger)
+  lazy val log: Logger = Logger(LogNames.ControllerLogger)
 
   private val facadeConfig = FacadeConfig(configuration)
 

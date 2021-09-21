@@ -21,7 +21,7 @@ class Module(environment: Environment, configuration : Configuration) extends Ab
   /**
    * The logger for the [[Module]]
    */
-  private val log = Logger(LogNames.MainLogger)
+  private val log = Logger(LogNames.ControllerLogger)
 
   /**
    * Create and bind any singleton classes during application startup

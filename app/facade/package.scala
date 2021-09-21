@@ -18,7 +18,7 @@ package object facade {
     /**
      * The main facade log
      */
-    lazy val MainLogger = "facade"
+    lazy val ControllerLogger = "facade-controller"
 
     /**
      * A dedicated log for [[facade.repository.Repository]] implementations
