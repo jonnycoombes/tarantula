@@ -4,6 +4,7 @@ import facade.cws.DownloadedContent
 import facade.db.NodeCoreDetails
 import play.api.libs.json.JsObject
 
+import java.nio.file.Path
 import scala.concurrent.Future
 
 /**
@@ -46,5 +47,18 @@ trait Repository {
    * @return a [[DownloadedContent]] instance containing details about the temporary file location for the file
    */
   def retrieveNodeContent(details : NodeCoreDetails, version : Option[Long]) : Future[RepositoryResult[DownloadedContent]]
+
+  /**
+   * Uploads a file to a given location, either adding a new document or adding a version to an existing document. This method will then
+   * return a rendition of the new/existing node as a [[JsObject]]
+   * @param parentDetails  
+   * @param meta
+   * @param filename
+   * @param source
+   * @param size
+   * @return
+   */
+  def uploadContent(parentDetails : NodeCoreDetails, meta : JsObject, filename: String, source : Path, size : Long)
+  : Future[RepositoryResult[JsObject]]
 
 }
