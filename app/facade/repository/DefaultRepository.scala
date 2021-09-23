@@ -9,6 +9,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
+import java.nio.file.Path
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future
 
@@ -22,7 +23,9 @@ import scala.concurrent.Future
  * @constructor instantiates a new instance of the repository
  * @param configuration the current application [[Configuration]]
  * @param lifecycle     a lifecycle hook so that any shutdown clean-up can be carried out
- * @param cache         the application level cache (default backing implementation is ehcache)
+ * @param jsonCache     cache for storing rendered JSON artifacts
+ * @param dbContext     the [[DbContext]] service
+ * @param cwsProxy      the [[CwsProxy]] service
  *
  */
 @Singleton
@@ -124,7 +127,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
    */
   override def renderNodeToJson(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
     log.trace(s"Rendering node [$details, depth=$depth]")
-    recursiveRender(details, depth).map{
+    recursiveRender(details, depth).map {
       Right(_)
     } recover {
       case t => Left(t)
@@ -146,7 +149,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
       case Left(t) =>
         Left(t)
     } recover {
-      case t=>
+      case t =>
         log.error(s"Couldn't retrieve content for $details : '${t.getMessage}")
         Left(t)
     }
@@ -181,9 +184,9 @@ class DefaultRepository @Inject()(configuration: Configuration,
             dbContext.queryChildrenDetails(details) flatMap {
               case Right(l) =>
                 Future.sequence(l.map(recursiveRender(_, depth - 1))) map { children =>
-                  if (children.isEmpty){
+                  if (children.isEmpty) {
                     nodeAsJson
-                  }else {
+                  } else {
                     nodeAsJson ++ Json.obj("children" -> JsArray(children))
                   }
                 }
@@ -191,7 +194,21 @@ class DefaultRepository @Inject()(configuration: Configuration,
             }
         }
       case Left(_) =>
-        Future.successful(Json.obj("id" -> details.dataId, "unsupportedNodeType"-> true))
+        Future.successful(Json.obj("id" -> details.dataId, "unsupportedNodeType" -> true))
     }
   }
+
+  /**
+   * Uploads a file to a given location, either adding a new document or adding a version to an existing document. This method will then
+   * return a rendition of the new/existing node as a [[JsObject]]
+   *
+   * @param parentDetails the [[NodeCoreDetails]] associated with the parent node, or the node to add a version to
+   * @param meta          a [[JsObject]] containing the KV pairs to be applied as meta-data for the uploaded document
+   * @param filename      the original/required filename for the document
+   * @param source        the path to a file containing the contents of the document
+   * @param size          the size of content to upload
+   * @return
+   */
+  override def uploadContent(parentDetails: NodeCoreDetails, meta: JsObject, filename: String, source: Path, size: Long)
+  : Future[RepositoryResult[JsObject]] = ???
 }

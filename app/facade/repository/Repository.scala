@@ -51,11 +51,11 @@ trait Repository {
   /**
    * Uploads a file to a given location, either adding a new document or adding a version to an existing document. This method will then
    * return a rendition of the new/existing node as a [[JsObject]]
-   * @param parentDetails  
-   * @param meta
-   * @param filename
-   * @param source
-   * @param size
+   * @param parentDetails the [[NodeCoreDetails]] associated with the parent node, or the node to add a version to
+   * @param meta a [[JsObject]] containing the KV pairs to be applied as meta-data for the uploaded document
+   * @param filename the original/required filename for the document
+   * @param source the path to a file containing the contents of the document
+   * @param size the size of content to upload
    * @return
    */
   def uploadContent(parentDetails : NodeCoreDetails, meta : JsObject, filename: String, source : Path, size : Long)

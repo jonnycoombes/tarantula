@@ -1,12 +1,10 @@
 package facade.controllers
 
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.FileIO
 import facade.repository._
 import facade.{FacadeConfig, LogNames}
-import play.api.libs.Files
 import play.api.libs.json.JsString
-import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents, MultipartFormData}
+import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
 import play.api.{Configuration, Logger}
 
 import javax.inject.{Inject, Singleton}
@@ -34,7 +32,6 @@ class NodeController @Inject()(val cc: ControllerComponents,
    *
    * @param path    the path relating to the retrieval request
    * @param depth   the depth of the retrieval (meta-data) queries only. Defaults to 1.
-   * @param meta    true if the meta is to be returned, false otherwise. Defaults to true.
    * @param content true if the content relating to the path should be retrieved, false otherwise.  Defaults to false.
    * @param version if retrieving content, the version to be retrieved.
    * @return
@@ -112,19 +109,15 @@ class NodeController @Inject()(val cc: ControllerComponents,
     }else {
       val resolvedPathFuture = repository.resolvePath(path.split('/').toList)
       resolvedPathFuture flatMap {
-        case Right(details) => {
+        case Right(details) =>
           repository.renderNodeToJson(details, depth) map {
-            case Right(rendition) => {
+            case Right(rendition) =>
               Ok(ResponseHelpers.success(rendition))
-            }
-            case Left(t) => {
+            case Left(t) =>
               Ok(ResponseHelpers.failure(JsString(t.getMessage)))
-            }
           }
-        }
-        case Left(t) => {
+        case Left(t) =>
           Future.successful(Ok(ResponseHelpers.failure(JsString(t.getMessage))))
-        }
       }
     }
   }

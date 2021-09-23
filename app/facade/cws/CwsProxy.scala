@@ -3,7 +3,9 @@ package facade.cws
 import com.opentext.cws.admin.ServerInfo
 import com.opentext.cws.authentication.OTAuthentication
 import com.opentext.cws.docman.Node
+import play.api.libs.json.JsObject
 
+import java.nio.file.Path
 import scala.concurrent.Future
 
 /**
@@ -16,35 +18,52 @@ trait CwsProxy {
 
   /**
    * Type alias for results
+   *
    * @tparam T the expected success type. Convention is that a successful computation places result in the Right.
    */
   type CwsProxyResult[T] = Either[Throwable, T]
 
   /**
    * Attempts an authentication and returns the resultant [[OTAuthentication]] structure containing the token
+   *
    * @return an [[OTAuthentication]] structure containing the authentication token, otherwise an exception
    */
-  def authenticate() : Future[CwsProxyResult[OTAuthentication]]
+  def authenticate(): Future[CwsProxyResult[OTAuthentication]]
 
   /**
    * Async wrapped call to [[com.opentext.cws.admin.AdminService]] GetServerInfo
+   *
    * @return
    */
-  def serverInfo() : Future[CwsProxyResult[ServerInfo]]
+  def serverInfo(): Future[CwsProxyResult[ServerInfo]]
 
   /**
    * Retrieve a node based on it's id
+   *
    * @param id the id of the node
    * @return a [[Future]] wrapping a [[CwsProxyResult]]
    */
-  def nodeById(id : Long) : Future[CwsProxyResult[Node]]
+  def nodeById(id: Long): Future[CwsProxyResult[Node]]
 
   /**
    * Attempts to retrieve the content associated with a given node version
-   * @param id the id for the node
+   *
+   * @param id      the id for the node
    * @param version the version to download.  If *None*, the latest version will be downloaded
    * @return A [[DownloadedContent]] instance containing the contents along with length and content type information
    */
-  def downloadNodeVersion(id : Long, version : Option[Long]) : Future[CwsProxyResult[DownloadedContent]];
+  def downloadNodeVersion(id: Long, version: Option[Long]): Future[CwsProxyResult[DownloadedContent]];
+
+  /**
+   * Uploads new content to a given parent node (either a folder or a document as a new version) and returns a new [[Node]]
+   *
+   * @param parentId the parent id of the node
+   * @param meta     a [[JsObject]] containing the meta-data to be applied to the node
+   * @param filename the filename to apply to the new content
+   * @param source   a file containing the the content of the file to upload
+   * @param size     the size of the content to upload
+   * @return
+   */
+  def uploadNodeContent(parentId: Long, meta: JsObject, filename: String, source: Path, size: Long): Future[CwsProxyResult[Node]]
 
 }

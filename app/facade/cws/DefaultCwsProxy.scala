@@ -3,17 +3,20 @@ package facade.cws
 import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
 import com.opentext.cws.content.ContentService_Service
-import com.opentext.cws.docman.{DocumentManagement_Service, Node}
+import com.opentext.cws.docman.{Attachment, BooleanValue, DataValue, DateValue, DocumentManagement_Service, IntegerValue, Metadata, Node, StringValue}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
-import org.jvnet.staxex.StreamingDataHandler
+import org.joda.time.format.DateTimeFormat
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.json.{JsBoolean, JsNumber, JsObject, JsString, JsValue}
 import play.api.{Configuration, Logger}
 
-import java.nio.file.{CopyOption, Files, StandardCopyOption}
+import java.nio.file.{Files, Path, StandardCopyOption}
 import java.util
+import java.util.GregorianCalendar
 import javax.inject.{Inject, Singleton}
+import javax.xml.datatype.{DatatypeFactory, XMLGregorianCalendar}
 import javax.xml.namespace.QName
 import javax.xml.ws.handler.MessageContext
 import javax.xml.ws.handler.soap.{SOAPHandler, SOAPMessageContext}
@@ -21,6 +24,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future, blocking}
 import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 /**
  * Default implementation of the [[CwsProxy]] trait. Implements transparent caching of authentication material, and all necessary
@@ -28,7 +32,7 @@ import scala.language.postfixOps
  *
  * @param configuration current [[Configuration]] instance
  * @param lifecycle     in order to add any lifecycle hooks
- * @param cache         in case a cache is required
+ *
  */
 @Singleton
 class DefaultCwsProxy @Inject()(configuration: Configuration,
@@ -74,6 +78,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    */
   private lazy val contentClient = contentService.basicHttpBindingContentService(this)
 
+  /**
+   * Used for metadata serialisation and update
+   */
+  private lazy val formatter = DateTimeFormat.forPattern("dd/MM/yyyy")
+
 
   lifecycle.addStopHook { () =>
     Future.successful({
@@ -102,7 +111,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    *
    * @return a valid authentication token
    */
-  private def resolveToken(): String = {
+  private[DefaultCwsProxy] def resolveToken(): String = {
     val cachedToken = tokenCache.get("cachedToken")
     if (cachedToken.isDefined) {
       log.trace("Found cached authentication token")
@@ -226,9 +235,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
             if (node != null) {
               nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
               Right(node)
-            }else{
-              Left(new Throwable(s"Looks as if the node type for id=${id} isn't supported by CWS"))
-            }
+            }else Left(new Throwable(s"Looks as if the node type for id=$id isn't supported by CWS"))
           } recover {
             case t =>
               log.error(t.getMessage)
@@ -264,6 +271,173 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       }
     }
   }
+
+  /**
+   * Uploads new content to a given parent node (either a folder or a document as a new version) and returns a new [[Node]]
+   *
+   * @param parentId the parent id of the node
+   * @param meta     a [[JsObject]] containing the meta-data to be applied to the node
+   * @param filename the filename to apply to the new content
+   * @param source   a file containing the the content of the file to upload
+   * @param size     the size of the content to upload
+   * @return
+   */
+  override def uploadNodeContent(parentId: Long, meta: JsObject, filename: String, source: Path, size: Long)
+  : Future[CwsProxyResult[Node]] = {
+    blocking {
+      log.trace(s"Uploading ${size} bytes of content from '${source}'")
+      nodeById(parentId) flatMap {
+        case Right(parent) =>
+          val attachment = createAttachment(source, filename)
+          if (parent.isIsContainer) {
+            log.trace(s"Uploading ${source} as new document object")
+            docManClient.getNodeTemplate(parentId, "Document") flatMap { template =>
+              updateMetadata(template.getMetadata, meta)
+              template.setName(filename)
+              docManClient.createNodeAndVersion(template, attachment) map { node =>
+                  Right(node)
+              }
+            }
+          } else {
+            log.trace(s"Uploading ${source} as new version object")
+            updateMetadata(parent.getMetadata, meta)
+            docManClient.addVersion(parentId, parent.getMetadata, attachment) map { version =>
+              Right(parent)
+            }
+          }
+        case Left(t) =>
+          log.error(t.getMessage)
+          Future.successful(Left(t))
+      }
+    }
+  }
+
+  /**
+   * Updates an entire [[Metadata]] structure
+   * @param meta the [[Metadata]] structure to be mutated/updated
+   * @param updates a [[JsObject]] containing the update specification
+   * @return Unit
+   */
+  @inline private[DefaultCwsProxy] def updateMetadata(meta : Metadata, updates : JsObject) : Unit = {
+    for(update <- updates.fields){
+      updateMetadataField(meta, update)
+    }
+  }
+
+  /**
+   * Takes a source file and a required filename and then creates an attachment required for CWS upload calls
+   * @param source the source [[Path]]
+   * @param filename the required filename for the attachment
+   * @return
+   */
+  private[DefaultCwsProxy] def createAttachment(source : Path, filename : String) : Attachment = {
+    val contents = Files.readAllBytes(source)
+    val attachment = new Attachment()
+    val ts = DatatypeFactory.newInstance().newXMLGregorianCalendar(new GregorianCalendar)
+    attachment.setContents(contents)
+    attachment.setFileName(filename)
+    attachment.setFileSize(contents.length)
+    attachment.setCreatedDate(ts)
+    attachment.setModifiedDate(ts)
+    attachment
+  }
+
+  /**
+   * Given a two component path in the form *CategoryName*.*AttributeName* attempts to look up the associated [[DataValue]] within a CWS
+   * [[Metadata]] structure
+   * @param path the path to the field
+   * @param meta the [[Metadata]] instance to look in
+   * @return an option. [[None]] if the field cannot be located within the supplied metadata structure
+   */
+  @inline private[DefaultCwsProxy] def lookupMetadataFieldByPath(path : String, meta : Metadata) : Option[DataValue] = {
+    val components = path.split('.')
+    if(components.length == 2){
+      val groups= meta.getAttributeGroups.asScala
+      for {
+        ag ← groups.find(_.getDisplayName.equalsIgnoreCase(components(0)))
+        dv ← ag.getValues.asScala.find(_.getDescription.equalsIgnoreCase(components(1)))
+      } yield (dv)
+    }else{
+      None
+    }
+  }
+
+  /**
+   * Given a [[Metadata]] structure and a pair containing a field path and a [[JsValue]] will update the associated field
+   * @param meta the [[Metadata]] instance to update
+   * @param update the pair containing the path to the field and the value to update
+   * @return a (possibly) updated instance of the [[Metadata]] structure
+   */
+  private def updateMetadataField(meta : Metadata, update : (String, JsValue)) : Metadata = {
+    val key = update._1
+    val value = update._2
+
+    lookupMetadataFieldByPath(key, meta) match {
+      case Some(dv) ⇒ {
+        dv match {
+          case v : StringValue ⇒ {
+            if (v.getValues.isEmpty) {
+              v.getValues.add(value.asInstanceOf[JsString].value)
+            }else{
+              v.getValues.clear()
+              v.getValues.add(value.asInstanceOf[JsString].value)
+            }
+          }
+          case v: IntegerValue ⇒ {
+            if (v.getValues.isEmpty) {
+              v.getValues.add(value.asInstanceOf[JsNumber].value.toLong)
+            }else{
+              v.getValues.clear()
+              v.getValues.add(value.asInstanceOf[JsString].value.toLong)
+            }
+          }
+          case v: BooleanValue ⇒ {
+            if (v.getValues.isEmpty) {
+              v.getValues.add(value.asInstanceOf[JsBoolean].value)
+            }else{
+              v.getValues.clear()
+              v.getValues.add(value.asInstanceOf[JsBoolean].value)
+            }
+          }
+          case v: DateValue ⇒ {
+            convertToXMLGregorianDate(value.asInstanceOf[JsString].value) match {
+              case Some(d) ⇒ {
+                if (v.getValues.isEmpty) {
+                  v.getValues.add(d)
+                }else{
+                  v.getValues.clear()
+                  v.getValues.add(d)
+                }
+              }
+              case None ⇒ {}
+            }
+          }
+        }
+      }
+      case None ⇒ {}
+    }
+
+    meta
+  }
+
+  /**
+   * Does the horrible SOAP serialisation for date values
+   * @param value a string encoded date value
+   * @return an option containing the [[XMLGregorianCalendar]] value for the passed in parameter
+   */
+  @inline private[DefaultCwsProxy] def convertToXMLGregorianDate(value : String) : Option[XMLGregorianCalendar] = {
+    try{
+      val dt= formatter.parseDateTime(value)
+      import java.util.GregorianCalendar
+      import javax.xml.datatype.DatatypeFactory
+      val calendar = new GregorianCalendar
+      calendar.setTime(dt.toDate)
+      val df = DatatypeFactory.newInstance
+      Some(df.newXMLGregorianCalendar(calendar))
+    }
+    catch {case _: Throwable ⇒ None}
+  }
+
 }
 
 /**
