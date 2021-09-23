@@ -209,6 +209,19 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @param size          the size of content to upload
    * @return
    */
-  override def uploadContent(parentDetails: NodeCoreDetails, meta: JsObject, filename: String, source: Path, size: Long)
-  : Future[RepositoryResult[JsObject]] = ???
+  override def uploadContent(parentDetails: NodeCoreDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
+  : Future[RepositoryResult[JsObject]] = {
+    cwsProxy.uploadNodeContent(parentDetails.dataId, meta, filename, source, size) flatMap {
+      case Right(node) =>
+        dbContext.queryDetailsById(node.getID) flatMap {
+          case Right(details) =>
+            renderNodeToJson(details, 0)
+          case Left(t) =>
+            Future.successful(Left(t))
+        }
+      case Left(t) =>
+        log.error(s"Error occurred during content upload '${t.getMessage}'")
+        Future.successful(Left(t))
+    }
+  }
 }

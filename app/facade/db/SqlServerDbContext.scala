@@ -206,6 +206,29 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
       }
     }
   }
+
+  /**
+   * Queries for the [[NodeCoreDetails]] of a node given an id
+   *
+   * @param id the id of the node to search for
+   * @return a result hopefully containing a [[NodeCoreDetails]] instance
+   */
+  override def queryDetailsById(id: Long): Future[DbContextResult[NodeCoreDetails]] = {
+    Future {
+      blocking {
+        try {
+          db.withConnection { implicit connection =>
+            implicit val config: FacadeConfig = facadeConfig
+            Right(NodeQueries.nodeDetailsById.on("p1" -> id).as(nodeCoreDetailsParser.single))
+          }
+        } catch {
+          case t: Throwable =>
+            log.error(s"Query breakdown '${t.getMessage}'")
+            Left(t)
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -235,6 +258,14 @@ object SqlServerDbContext {
       s"""select ParentID, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
                                                             from ${config.dbSchema}.DTreeCore
                                                               where ParentID = {p1} and Name = {p2} and DataID > 0""")
+
+    def nodeDetailsById(implicit config: FacadeConfig) : SimpleSql[Row] = SQL(
+      s"""
+         |select ParentId, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
+         |  from ${config.dbSchema}.DTreeCore
+         |    where DataID = {p1}
+         |""".stripMargin
+    )
 
     /**
      * SQL used to retrieve a list of child nodes for a given parent id

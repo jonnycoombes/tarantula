@@ -58,12 +58,12 @@ trait CwsProxy {
    * Uploads new content to a given parent node (either a folder or a document as a new version) and returns a new [[Node]]
    *
    * @param parentId the parent id of the node
-   * @param meta     a [[JsObject]] containing the meta-data to be applied to the node
+   * @param meta     a optional [[JsObject]] containing the meta-data to be applied to the node
    * @param filename the filename to apply to the new content
    * @param source   a file containing the the content of the file to upload
    * @param size     the size of the content to upload
    * @return
    */
-  def uploadNodeContent(parentId: Long, meta: JsObject, filename: String, source: Path, size: Long): Future[CwsProxyResult[Node]]
+  def uploadNodeContent(parentId: Long, meta: Option[JsObject], filename: String, source: Path, size: Long): Future[CwsProxyResult[Node]]
 
 }

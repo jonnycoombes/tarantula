@@ -282,7 +282,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @param size     the size of the content to upload
    * @return
    */
-  override def uploadNodeContent(parentId: Long, meta: JsObject, filename: String, source: Path, size: Long)
+  override def uploadNodeContent(parentId: Long, meta: Option[JsObject], filename: String, source: Path, size: Long)
   : Future[CwsProxyResult[Node]] = {
     blocking {
       log.trace(s"Uploading ${size} bytes of content from '${source}'")
@@ -318,9 +318,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @param updates a [[JsObject]] containing the update specification
    * @return Unit
    */
-  @inline private[DefaultCwsProxy] def updateMetadata(meta : Metadata, updates : JsObject) : Unit = {
-    for(update <- updates.fields){
-      updateMetadataField(meta, update)
+  @inline private[DefaultCwsProxy] def updateMetadata(meta : Metadata, updates : Option[JsObject]) : Unit = {
+    updates foreach { f =>
+      for (update <- f.fields) {
+        updateMetadataField(meta, update)
+      }
     }
   }
 
@@ -354,8 +356,8 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
     if(components.length == 2){
       val groups= meta.getAttributeGroups.asScala
       for {
-        ag ← groups.find(_.getDisplayName.equalsIgnoreCase(components(0)))
-        dv ← ag.getValues.asScala.find(_.getDescription.equalsIgnoreCase(components(1)))
+        ag <- groups.find(_.getDisplayName.equalsIgnoreCase(components(0)))
+        dv <- ag.getValues.asScala.find(_.getDescription.equalsIgnoreCase(components(1)))
       } yield (dv)
     }else{
       None
@@ -373,9 +375,9 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
     val value = update._2
 
     lookupMetadataFieldByPath(key, meta) match {
-      case Some(dv) ⇒ {
+      case Some(dv) => {
         dv match {
-          case v : StringValue ⇒ {
+          case v : StringValue => {
             if (v.getValues.isEmpty) {
               v.getValues.add(value.asInstanceOf[JsString].value)
             }else{
@@ -383,7 +385,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               v.getValues.add(value.asInstanceOf[JsString].value)
             }
           }
-          case v: IntegerValue ⇒ {
+          case v: IntegerValue => {
             if (v.getValues.isEmpty) {
               v.getValues.add(value.asInstanceOf[JsNumber].value.toLong)
             }else{
@@ -391,7 +393,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               v.getValues.add(value.asInstanceOf[JsString].value.toLong)
             }
           }
-          case v: BooleanValue ⇒ {
+          case v: BooleanValue => {
             if (v.getValues.isEmpty) {
               v.getValues.add(value.asInstanceOf[JsBoolean].value)
             }else{
@@ -399,9 +401,9 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               v.getValues.add(value.asInstanceOf[JsBoolean].value)
             }
           }
-          case v: DateValue ⇒ {
+          case v: DateValue => {
             convertToXMLGregorianDate(value.asInstanceOf[JsString].value) match {
-              case Some(d) ⇒ {
+              case Some(d) => {
                 if (v.getValues.isEmpty) {
                   v.getValues.add(d)
                 }else{
@@ -409,12 +411,12 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
                   v.getValues.add(d)
                 }
               }
-              case None ⇒ {}
+              case None => {}
             }
           }
         }
       }
-      case None ⇒ {}
+      case None => {}
     }
 
     meta
@@ -435,7 +437,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       val df = DatatypeFactory.newInstance
       Some(df.newXMLGregorianCalendar(calendar))
     }
-    catch {case _: Throwable ⇒ None}
+    catch {case _: Throwable => None}
   }
 
 }

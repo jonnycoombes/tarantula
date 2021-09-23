@@ -3,9 +3,10 @@ package facade.controllers
 import akka.actor.ActorSystem
 import facade.repository._
 import facade.{FacadeConfig, LogNames}
-import play.api.libs.json.JsString
-import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents}
+import play.api.libs.json.{JsObject, JsString, Json}
+import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents, MultipartFormData}
 import play.api.{Configuration, Logger}
+import play.api.libs.Files
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,6 +47,17 @@ class NodeController @Inject()(val cc: ControllerComponents,
     }
   }
 
+  private[NodeController] def parseMetadata(multiPart : MultipartFormData[Files.TemporaryFile]) : Option[JsObject] = {
+    var meta : Option[JsObject] = None
+    multiPart.dataParts.get("meta") match {
+      case Some(s) =>
+        meta= Some(Json.parse(s.head).asInstanceOf[JsObject])
+      case None =>
+        meta= None
+    }
+    meta
+  }
+
   /**
    * Uploads new content to a given location. If the location represents a container (such as a folder) then a new document is added
    * using the payload.  If the location represents an existing document node, then a new version is added to the node
@@ -54,22 +66,30 @@ class NodeController @Inject()(val cc: ControllerComponents,
    */
   def post(path : String) : Action[AnyContent] = Action.async { implicit request =>
     log.trace("New content upload request accepted")
-    val resolvedPathFuture = repository.resolvePath(path.split('/').toList)
     request.body.asMultipartFormData match {
       case Some(mp) =>
         if (mp.files.isEmpty){
           Future.successful(Ok(ResponseHelpers.failure(JsString("You must supply at least one file within a content upload request"))))
         }else{
-          for(f <- mp.files){
-            log.trace(s"Uploading content '${f.filename}'")
+          val meta= parseMetadata(mp)
+          val file = mp.files.head
+          log.trace(s"Uploading content '${file.filename}'")
+          val resolvedPathFuture = repository.resolvePath(path.split('/').toList)
+          resolvedPathFuture flatMap {
+            case Right(details) =>
+              repository.uploadContent(details, meta, file.filename, file.ref.path, file.fileSize) map {
+                case Right(rendition) =>
+                  Ok(ResponseHelpers.success(rendition))
+                case Left(t)=>
+                  Ok(ResponseHelpers.failure(JsString(t.getMessage)))
+              }
+            case Left(t) =>
+              Future.successful(Ok(ResponseHelpers.failure(JsString(t.getMessage))))
           }
         }
       case None =>
         Future.successful(Ok(ResponseHelpers.failure(JsString("To upload content, you must supply valid multi-part form content"))))
     }
-
-
-    Future.successful(Ok(JsString("you attempted to upload a file")))
   }
 
   /**

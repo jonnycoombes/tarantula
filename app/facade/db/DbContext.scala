@@ -36,4 +36,11 @@ trait DbContext {
    */
   def queryChildrenDetails(details : NodeCoreDetails) : Future[DbContextResult[List[NodeCoreDetails]]]
 
+  /**
+   * Queries for the [[NodeCoreDetails]] of a node given an id
+   * @param id the id of the node to search for
+   * @return a result hopefully containing a [[NodeCoreDetails]] instance
+   */
+  def queryDetailsById(id : Long) : Future[DbContextResult[NodeCoreDetails]]
+
 }
