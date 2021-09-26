@@ -3,8 +3,7 @@ package facade.cws
 import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
 import com.opentext.cws.content.ContentService_Service
-import com.opentext.cws.docman.{Attachment, BooleanValue, DataValue, DateValue, DocumentManagement_Service, IntegerValue, Metadata, Node,
-  StringValue}
+import com.opentext.cws.docman.{OTAuthentication => _, _}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
 import org.joda.time.format.DateTimeFormat
@@ -25,7 +24,6 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future, blocking}
 import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
 
 /**
  * Default implementation of the [[CwsProxy]] trait. Implements transparent caching of authentication material, and all necessary
@@ -450,7 +448,8 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
   }
 
   /**
-   * Updates the metadata associated with a given node (based on its id)
+   * Updates the metadata associated with a given node (based on its id). Note that a side-effect of calling this function is to re-cache
+   * the target node so that subsequent reads of the node will be very quick
    *
    * @param id   the id of the node to update
    * @param meta the metadata to be applied to the node (updates only) in the form of KV pairs, where the key is of the form <CATEGORY>
@@ -462,7 +461,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       log.trace(s"Updating meta-data for node with id=$id")
       nodeById(id) flatMap {
         case Right(node) =>
-
+          updateMetadata(node.getMetadata, Some(meta))
+          nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
+          docManClient.updateNode(node) flatMap { _ =>
+              nodeById(id)
+          }
         case Left(t)=>
           log.error(t.getMessage)
           Future.successful(Left(t))

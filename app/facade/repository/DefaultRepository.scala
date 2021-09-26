@@ -224,4 +224,20 @@ class DefaultRepository @Inject()(configuration: Configuration,
         Future.successful(Left(t))
     }
   }
+
+  /**
+   * Updates the meta-data associated with a given [[NodeCoreDetails]] instance
+   *
+   * @param details the [[NodeCoreDetails]] associated with the node to update
+   * @param meta    a [[JsObject]] containing the KV pairs defining the updates to make
+   * @return a [[JsObject]] rendition of the updated node
+   */
+  override def updateNodeMetaData(details: NodeCoreDetails, meta: JsObject): Future[RepositoryResult[JsObject]] = {
+    cwsProxy.updateNodeMetaData(details.dataId, meta) flatMap {
+      case Right(_) =>
+        renderNodeToJson(details, 0)
+      case Left(t) =>
+        Future.successful(Left(t))
+    }
+  }
 }
