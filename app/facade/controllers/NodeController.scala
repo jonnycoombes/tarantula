@@ -93,6 +93,25 @@ class NodeController @Inject()(val cc: ControllerComponents,
   }
 
   /**
+   * Parses a meta-data update from the inbound request body, (as a [[JsObject]] instance) and then uses this to update the meta-data for
+   * a given node
+   * @param path the path to the node to update
+   * @return
+   */
+  def patch(path : String) : Action[AnyContent] = Action.async { implicit request =>
+
+    request.body.asJson match {
+      case Some(json) => {
+        val resolvedPathFuture = repository.resolvePath(path.split('/').toList)
+
+        Future.successful(Ok(ResponseHelpers.success(JsString("You attempted a PATCH request"))))
+      }
+      case None => Future.successful(Ok(ResponseHelpers.failure(JsString("No JSON payload presented as part of a PATCH request"))))
+    }
+
+  }
+
+  /**
    * Retrieves the content of a node (i.e. if it's a document then the document)
    * @param path the path to the node
    * @param version the version to retrieve, which defaults to the latest version

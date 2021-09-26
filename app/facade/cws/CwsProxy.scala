@@ -52,7 +52,7 @@ trait CwsProxy {
    * @param version the version to download.  If *None*, the latest version will be downloaded
    * @return A [[DownloadedContent]] instance containing the contents along with length and content type information
    */
-  def downloadNodeVersion(id: Long, version: Option[Long]): Future[CwsProxyResult[DownloadedContent]];
+  def downloadNodeVersion(id: Long, version: Option[Long]): Future[CwsProxyResult[DownloadedContent]]
 
   /**
    * Uploads new content to a given parent node (either a folder or a document as a new version) and returns a new [[Node]]
@@ -65,5 +65,15 @@ trait CwsProxy {
    * @return
    */
   def uploadNodeContent(parentId: Long, meta: Option[JsObject], filename: String, source: Path, size: Long): Future[CwsProxyResult[Node]]
+
+  /**
+   * Updates the metadata associated with a given node (based on its id)
+   * @param id the id of the node to update
+   * @param meta the metadata to be applied to the node (updates only) in the form of KV pairs, where the key is of the form <CATEGORY>
+   *               .<ATTRIBUTE>
+   * @return the updated [[Node]]
+   */
+  def updateNodeMetaData(id : Long, meta: JsObject) : Future[CwsProxyResult[Node]]
+
 
 }

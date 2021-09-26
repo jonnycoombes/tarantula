@@ -3,7 +3,8 @@ package facade.cws
 import com.opentext.cws.admin.{AdminService_Service, ServerInfo}
 import com.opentext.cws.authentication._
 import com.opentext.cws.content.ContentService_Service
-import com.opentext.cws.docman.{Attachment, BooleanValue, DataValue, DateValue, DocumentManagement_Service, IntegerValue, Metadata, Node, StringValue}
+import com.opentext.cws.docman.{Attachment, BooleanValue, DataValue, DateValue, DocumentManagement_Service, IntegerValue, Metadata, Node,
+  StringValue}
 import facade.cws.DefaultCwsProxy.{EcmApiNamespace, OtAuthenticationHeaderName, wrapToken}
 import facade.{FacadeConfig, LogNames}
 import org.joda.time.format.DateTimeFormat
@@ -38,7 +39,7 @@ import scala.util.{Failure, Success}
 class DefaultCwsProxy @Inject()(configuration: Configuration,
                                 lifecycle: ApplicationLifecycle,
                                 @NamedCache("token-cache") tokenCache: SyncCacheApi,
-                                @NamedCache("node-cache") nodeCache : SyncCacheApi,
+                                @NamedCache("node-cache") nodeCache: SyncCacheApi,
                                 authenticationService: Authentication_Service,
                                 adminService: AdminService_Service,
                                 documentManagementService: DocumentManagement_Service,
@@ -130,11 +131,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
             throw ex
         }
       } catch {
-        case ex : Exception =>
+        case ex: Exception =>
           log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
           log.error("Unable to perform authentication against OTCS - check service status")
           throw new Throwable("OTCS authentication failed. Check service status & config")
-        case ex : Throwable =>
+        case ex: Throwable =>
           log.error(s"Failed to authenticate against OTCS: \"${ex.getMessage}\"")
           log.error("Unable to perform authentication against CWS - check service status")
           throw new Throwable("OTCS authentication failed. Check service status & config")
@@ -165,8 +166,8 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
         val tokenElement = authElement.addChildElement(new QName(EcmApiNamespace, "AuthenticationToken"))
         tokenElement.addTextNode(resolveToken())
         true
-      }catch{
-        case _ : Throwable =>
+      } catch {
+        case _: Throwable =>
           log.error("Unable to inject required outbound authentication token")
           log.error("Check previous errors relating to OTCS authentication")
           true
@@ -224,18 +225,18 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return a [[Future]] wrapping a [[CwsProxyResult]]
    */
   override def nodeById(id: Long): Future[CwsProxyResult[Node]] = {
-    blocking{
+    blocking {
       nodeCache.get[Node](id.toHexString) match {
         case Some(node) =>
           log.trace(s"Node cache *hit* for id=$id")
           Future.successful(Right(node))
         case None =>
           log.trace(s"Node cache *miss* for id=$id")
-          docManClient.getNode(id) map { node : Node =>
+          docManClient.getNode(id) map { node: Node =>
             if (node != null) {
               nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
               Right(node)
-            }else Left(new Throwable(s"Looks as if the node type for id=$id isn't supported by CWS"))
+            } else Left(new Throwable(s"Looks as if the node type for id=$id isn't supported by CWS"))
           } recover {
             case t =>
               log.error(t.getMessage)
@@ -248,7 +249,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
   /**
    * Attempts to retrieve the content associated with a given node version
    *
-   * @param id      the id for the node
+   * @param id            the id for the node
    * @param versionNumber the version to download.  If *None*, the latest version will be downloaded
    * @return A [[DownloadedContent]] instance containing the contents along with length and content type information
    */
@@ -258,7 +259,8 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       docManClient.getVersion(id, versionNumber.getOrElse(0)) flatMap { version =>
         docManClient.getVersionContentsContext(id, versionNumber.getOrElse(0)) flatMap { cookie =>
           contentClient.downloadContent(cookie) map { handler =>
-            val tempFile = play.libs.Files.singletonTemporaryFileCreator().asScala().create(prefix = "fcs", suffix = s".${version.getFileType}").path.toFile
+            val tempFile = play.libs.Files.singletonTemporaryFileCreator().asScala().create(prefix = "fcs", suffix = s".${version
+              .getFileType}").path.toFile
             Files.copy(handler.getInputStream, tempFile.toPath, StandardCopyOption.REPLACE_EXISTING)
             log.trace(s"Retrieved ${tempFile.length} bytes")
             Right(DownloadedContent(tempFile, tempFile.length, version.getMimeType))
@@ -295,7 +297,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               updateMetadata(template.getMetadata, meta)
               template.setName(filename)
               docManClient.createNodeAndVersion(template, attachment) map { node =>
-                  Right(node)
+                Right(node)
               }
             }
           } else {
@@ -314,11 +316,12 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
 
   /**
    * Updates an entire [[Metadata]] structure
-   * @param meta the [[Metadata]] structure to be mutated/updated
+   *
+   * @param meta    the [[Metadata]] structure to be mutated/updated
    * @param updates a [[JsObject]] containing the update specification
    * @return Unit
    */
-  @inline private[DefaultCwsProxy] def updateMetadata(meta : Metadata, updates : Option[JsObject]) : Unit = {
+  @inline private[DefaultCwsProxy] def updateMetadata(meta: Metadata, updates: Option[JsObject]): Unit = {
     updates foreach { f =>
       for (update <- f.fields) {
         updateMetadataField(meta, update)
@@ -328,11 +331,12 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
 
   /**
    * Takes a source file and a required filename and then creates an attachment required for CWS upload calls
-   * @param source the source [[Path]]
+   *
+   * @param source   the source [[Path]]
    * @param filename the required filename for the attachment
    * @return
    */
-  private[DefaultCwsProxy] def createAttachment(source : Path, filename : String) : Attachment = {
+  private[DefaultCwsProxy] def createAttachment(source: Path, filename: String): Attachment = {
     val contents = Files.readAllBytes(source)
     val attachment = new Attachment()
     val ts = DatatypeFactory.newInstance().newXMLGregorianCalendar(new GregorianCalendar)
@@ -347,40 +351,42 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
   /**
    * Given a two component path in the form *CategoryName*.*AttributeName* attempts to look up the associated [[DataValue]] within a CWS
    * [[Metadata]] structure
+   *
    * @param path the path to the field
    * @param meta the [[Metadata]] instance to look in
    * @return an option. [[None]] if the field cannot be located within the supplied metadata structure
    */
-  @inline private[DefaultCwsProxy] def lookupMetadataFieldByPath(path : String, meta : Metadata) : Option[DataValue] = {
+  @inline private[DefaultCwsProxy] def lookupMetadataFieldByPath(path: String, meta: Metadata): Option[DataValue] = {
     val components = path.split('.')
-    if(components.length == 2){
-      val groups= meta.getAttributeGroups.asScala
+    if (components.length == 2) {
+      val groups = meta.getAttributeGroups.asScala
       for {
         ag <- groups.find(_.getDisplayName.equalsIgnoreCase(components(0)))
         dv <- ag.getValues.asScala.find(_.getDescription.equalsIgnoreCase(components(1)))
       } yield (dv)
-    }else{
+    } else {
       None
     }
   }
 
   /**
    * Given a [[Metadata]] structure and a pair containing a field path and a [[JsValue]] will update the associated field
-   * @param meta the [[Metadata]] instance to update
+   *
+   * @param meta   the [[Metadata]] instance to update
    * @param update the pair containing the path to the field and the value to update
    * @return a (possibly) updated instance of the [[Metadata]] structure
    */
-  private def updateMetadataField(meta : Metadata, update : (String, JsValue)) : Metadata = {
+  private def updateMetadataField(meta: Metadata, update: (String, JsValue)): Metadata = {
     val key = update._1
     val value = update._2
 
     lookupMetadataFieldByPath(key, meta) match {
       case Some(dv) => {
         dv match {
-          case v : StringValue => {
+          case v: StringValue => {
             if (v.getValues.isEmpty) {
               v.getValues.add(value.asInstanceOf[JsString].value)
-            }else{
+            } else {
               v.getValues.clear()
               v.getValues.add(value.asInstanceOf[JsString].value)
             }
@@ -388,7 +394,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           case v: IntegerValue => {
             if (v.getValues.isEmpty) {
               v.getValues.add(value.asInstanceOf[JsNumber].value.toLong)
-            }else{
+            } else {
               v.getValues.clear()
               v.getValues.add(value.asInstanceOf[JsString].value.toLong)
             }
@@ -396,7 +402,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           case v: BooleanValue => {
             if (v.getValues.isEmpty) {
               v.getValues.add(value.asInstanceOf[JsBoolean].value)
-            }else{
+            } else {
               v.getValues.clear()
               v.getValues.add(value.asInstanceOf[JsBoolean].value)
             }
@@ -406,7 +412,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               case Some(d) => {
                 if (v.getValues.isEmpty) {
                   v.getValues.add(d)
-                }else{
+                } else {
                   v.getValues.clear()
                   v.getValues.add(d)
                 }
@@ -424,12 +430,13 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
 
   /**
    * Does the horrible SOAP serialisation for date values
+   *
    * @param value a string encoded date value
    * @return an option containing the [[XMLGregorianCalendar]] value for the passed in parameter
    */
-  @inline private[DefaultCwsProxy] def convertToXMLGregorianDate(value : String) : Option[XMLGregorianCalendar] = {
-    try{
-      val dt= formatter.parseDateTime(value)
+  @inline private[DefaultCwsProxy] def convertToXMLGregorianDate(value: String): Option[XMLGregorianCalendar] = {
+    try {
+      val dt = formatter.parseDateTime(value)
       import java.util.GregorianCalendar
       import javax.xml.datatype.DatatypeFactory
       val calendar = new GregorianCalendar
@@ -437,9 +444,31 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
       val df = DatatypeFactory.newInstance
       Some(df.newXMLGregorianCalendar(calendar))
     }
-    catch {case _: Throwable => None}
+    catch {
+      case _: Throwable => None
+    }
   }
 
+  /**
+   * Updates the metadata associated with a given node (based on its id)
+   *
+   * @param id   the id of the node to update
+   * @param meta the metadata to be applied to the node (updates only) in the form of KV pairs, where the key is of the form <CATEGORY>
+   *             .<ATTRIBUTE>
+   * @return the updated [[Node]]
+   */
+  override def updateNodeMetaData(id: Long, meta: JsObject): Future[CwsProxyResult[Node]] = {
+    blocking {
+      log.trace(s"Updating meta-data for node with id=$id")
+      nodeById(id) flatMap {
+        case Right(node) =>
+
+        case Left(t)=>
+          log.error(t.getMessage)
+          Future.successful(Left(t))
+      }
+    }
+  }
 }
 
 /**
