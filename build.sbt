@@ -1,10 +1,10 @@
 import play.soap.sbtplugin.Imports.WsdlKeys
 
-name := "jcs-facade"
+name := """jcs-facade"""
+maintainer := """jcoombes@jcs-software.co.uk"""
+version := """1.0.1"""
 
-version := "1.0.1"
-
-lazy val `facade` = (project in file(".")).enablePlugins(PlayScala)
+lazy val `facade` = (project in file(".")).enablePlugins(PlayScala,LauncherJarPlugin)
 
 resolvers += "Akka Snapshot Repository" at "https://repo.akka.io/snapshots/"
 
