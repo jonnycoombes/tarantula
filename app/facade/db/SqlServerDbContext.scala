@@ -165,7 +165,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param path a list of path elements, which when combined form a complete relative path of the form A/B/C
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeCoreDetails]] instance or a [[Throwable]]
    */
-  override def queryDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
+  override def queryNodeCoreDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
     val combined = path.mkString("/")
     log.trace(s"Lookup for path '$combined'")
     cache.get[NodeCoreDetails](combined) match {
@@ -189,7 +189,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param details the [[NodeCoreDetails]] for the parent
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
    */
-  override def queryChildrenDetails(details: NodeCoreDetails): Future[DbContextResult[List[NodeCoreDetails]]] = {
+  override def queryChildrenCoreDetails(details: NodeCoreDetails): Future[DbContextResult[List[NodeCoreDetails]]] = {
     Future {
       blocking {
         try {
@@ -213,7 +213,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param id the id of the node to search for
    * @return a result hopefully containing a [[NodeCoreDetails]] instance
    */
-  override def queryDetailsById(id: Long): Future[DbContextResult[NodeCoreDetails]] = {
+  override def queryNodeCoreDetailsById(id: Long): Future[DbContextResult[NodeCoreDetails]] = {
     Future {
       blocking {
         try {

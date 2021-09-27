@@ -21,7 +21,7 @@ GET /api/v1/*path   facade.controllers.NodeController.get(path: String, depth : 
 POST /api/v1/*path  facade.controllers.NodeController.post(path: String)
 
 # Update the meta-data associated with a given location
-+ nocrsf
++ nocsrf
 PATCH /api/v1/*path facade.controllers.NodeController.patch(path: String)
 
 

@@ -92,7 +92,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
   override def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]] = {
-    val nodeId = dbContext.queryDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
+    val nodeId = dbContext.queryNodeCoreDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
     nodeId map {
       case Right(id) => Right(id)
       case Left(t) => Left(t)
@@ -181,7 +181,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
           case 0 =>
             Future.successful(nodeAsJson)
           case _ =>
-            dbContext.queryChildrenDetails(details) flatMap {
+            dbContext.queryChildrenCoreDetails(details) flatMap {
               case Right(l) =>
                 Future.sequence(l.map(recursiveRender(_, depth - 1))) map { children =>
                   if (children.isEmpty) {
@@ -213,7 +213,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
   : Future[RepositoryResult[JsObject]] = {
     cwsProxy.uploadNodeContent(parentDetails.dataId, meta, filename, source, size) flatMap {
       case Right(node) =>
-        dbContext.queryDetailsById(node.getID) flatMap {
+        dbContext.queryNodeCoreDetailsById(node.getID) flatMap {
           case Right(details) =>
             renderNodeToJson(details, 0)
           case Left(t) =>
@@ -235,6 +235,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
   override def updateNodeMetaData(details: NodeCoreDetails, meta: JsObject): Future[RepositoryResult[JsObject]] = {
     cwsProxy.updateNodeMetaData(details.dataId, meta) flatMap {
       case Right(_) =>
+        jsonCache.remove(details.dataId.toHexString)
         renderNodeToJson(details, 0)
       case Left(t) =>
         Future.successful(Left(t))

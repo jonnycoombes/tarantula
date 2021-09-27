@@ -40,39 +40,72 @@ package object db {
    * @param createDate   the creation date for the node
    * @param modifyDate   the last modification date for the node
    */
-  case class NodeCoreDetails(parentId: Long, dataId: Long, versionNum: Long, name: String, subType: Long,
-                             originDataId: Long, createDate: DateTime, modifyDate: DateTime) {
+  case class NodeCoreDetails(parentId: Long,
+                             dataId: Long,
+                             versionNum: Long,
+                             name: String,
+                             subType: Long,
+                             originDataId: Long,
+                             createDate: DateTime,
+                             modifyDate: DateTime) {
+    /**
+     * Returns true if the underlying node is an alias
+     * @return
+     */
     @inline def isAlias: Boolean = subType == 1
 
+    /**
+     * Returns true if the underlying node is a volume
+     * @return
+     */
     @inline def isVolume: Boolean = VolumeSubTypes.contains(subType)
 
+    /**
+     * Returns true if the underlying node is a document
+     * @return
+     */
     @inline def isDocument: Boolean = subType == 144
 
+    /**
+     * Returns true if the underlying node is a folder
+     * @return
+     */
     @inline def isFolder: Boolean = subType == 0
   }
 
+
+  case class NodeVersionDetails(dummy: String)
+
+  case class NodeAttributeDetails(dummy : String)
+
+  /**
+   * A combined structure that contains all of the relevant DB information relating to a given underlying node structure
+   */
+  case class NodeDetails(core : NodeCoreDetails, versions : List[NodeVersionDetails], attributes : List[NodeAttributeDetails])
+
+  /**
+   * Used for formatting Joda date time structures
+   */
   implicit lazy val dateWriter: Writes[DateTime] = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZ'")
 
   /**
    * [[Writes]] for [[NodeCoreDetails]]
    */
-  implicit val nodeCoreDetailsWrites: Writes[NodeCoreDetails] = new Writes[NodeCoreDetails] {
-    override def writes(o: NodeCoreDetails): JsValue = {
-      Json.obj(
-        "parentId" -> o.parentId,
-        "dataId" -> o.dataId,
-        "versionNum" -> o.versionNum,
-        "name" -> o.name,
-        "subType" -> o.subType,
-        "originDataId" -> o.originDataId,
-        "createDate" -> o.createDate,
-        "modifyDate" -> o.modifyDate,
-        "isAlias" -> o.isAlias,
-        "isVolume" -> o.isVolume,
-        "isDocument" -> o.isDocument,
-        "isFolder" -> o.isFolder
-      )
-    }
+  implicit val nodeCoreDetailsWrites: Writes[NodeCoreDetails] = (o: NodeCoreDetails) => {
+    Json.obj(
+      "parentId" -> o.parentId,
+      "dataId" -> o.dataId,
+      "versionNum" -> o.versionNum,
+      "name" -> o.name,
+      "subType" -> o.subType,
+      "originDataId" -> o.originDataId,
+      "createDate" -> o.createDate,
+      "modifyDate" -> o.modifyDate,
+      "isAlias" -> o.isAlias,
+      "isVolume" -> o.isVolume,
+      "isDocument" -> o.isDocument,
+      "isFolder" -> o.isFolder
+    )
   }
 
   /**

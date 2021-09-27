@@ -103,8 +103,17 @@ class NodeController @Inject()(val cc: ControllerComponents,
     request.body.asJson match {
       case Some(json) => {
         val resolvedPathFuture = repository.resolvePath(path.split('/').toList)
-
-        Future.successful(Ok(ResponseHelpers.success(JsString("You attempted a PATCH request"))))
+        resolvedPathFuture flatMap {
+          case Right(details) =>
+            repository.updateNodeMetaData(details, json.asInstanceOf[JsObject]) map {
+              case Right(rendition) =>
+                Ok(ResponseHelpers.success(rendition))
+              case Left(t) =>
+                Ok(ResponseHelpers.failure(JsString(t.getMessage)))
+            }
+          case Left(t) =>
+            Future.successful(Ok(ResponseHelpers.failure(JsString(t.getMessage))))
+        }
       }
       case None => Future.successful(Ok(ResponseHelpers.failure(JsString("No JSON payload presented as part of a PATCH request"))))
     }
