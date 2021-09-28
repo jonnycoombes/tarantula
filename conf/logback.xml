@@ -27,14 +27,14 @@
     <logger name="play" level="INFO"/>
     <logger name="akka" level="OFF" />
     <logger name="facade-controller" level="OFF"/>
-    <logger name="facade-repository" level="OFF"/>
+    <logger name="facade-repository" level="TRACE"/>
     <logger name="facade-timings" level="OFF" />
-    <logger name="facade-cws-proxy" level="OFF" />
-    <logger name="facade-db-context" level="INFO" />
+    <logger name="facade-cws-proxy" level="TRACE" />
+    <logger name="facade-db-context" level="TRACE" />
     <logger name="com.zaxxer.hikari.pool.HikariPool" level="INFO" />
     <logger name="org.apache.cxf" level="INFO" />
     <logger name="org.apache.http" level="INFO" />
-    <logger name="org.jdbcdslog" level="OFF" />
+    <logger name="org.jdbcdslog" level="DEBUG" />
 
     <!-- Off these ones as they are annoying, and anyway we manage configuration ourselves -->
     <logger name="com.avaje.ebean.config.PropertyMapLoader" level="OFF"/>

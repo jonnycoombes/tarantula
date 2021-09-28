@@ -81,24 +81,64 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   }
 
   /**
+   * Loads a [[NodeDetails]] case class from the database based on a given node id
+   *
+   * @param id     the id of the node to retrieve the [[NodeDetails]] for
+   * @param config an implicit config which provides the schema prefix to use
+   * @return
+   */
+  private def loadNodeDetails(id: Long)(implicit config: FacadeConfig): NodeDetails = {
+    try {
+      log.trace(s"loadNodeDetails id=$id")
+      db.withConnection { implicit c =>
+        val core = NodeQueries.nodeCoreByIdSql.on("p1" -> id).as(nodeCoreDetailsParser.single)
+        val versions = NodeQueries.nodeVersionsByIdSql.on("p1" -> id).as(nodeVersionDetailsParser.*)
+        val attributes = NodeQueries.nodeAttributesByIdSql.on("p1" -> id).as(nodeAttributeDetailsParser.*)
+        NodeDetails(core, versions, attributes)
+      }
+    } catch {
+      case t: Throwable =>
+        log.error(s"Query breakdown '${t.getMessage}'")
+        throw t
+    }
+  }
+
+  /**
+   * Loads a [[NodeDetails]] case class from the database based on a given parent id and node name
+   *
+   * @param parentId the parent id
+   * @param name     the name of the node to searc for
+   * @param config   an implicit config which provides the schema prefix to use
+   * @return
+   */
+  private def loadNodeDetails(parentId: Long, name: String)(implicit config: FacadeConfig): NodeDetails = {
+    try {
+      log.trace(s"loadNodeDetails parentId=$parentId, name=$name")
+      db.withConnection { implicit c =>
+        val core = NodeQueries.nodeCoreByNameSql.on("p1" -> parentId, "p2" -> name).as(nodeCoreDetailsParser.single)
+        val versions = NodeQueries.nodeVersionsByIdSql.on("p1" -> core.dataId).as(nodeVersionDetailsParser.*)
+        val attributes = NodeQueries.nodeAttributesByIdSql.on("p1" -> core.dataId).as(nodeAttributeDetailsParser.*)
+        NodeDetails(core, versions, attributes)
+      }
+    } catch {
+      case t: Throwable =>
+        log.error(s"Query breakdown '${t.getMessage}'")
+        throw t
+    }
+  }
+
+  /**
    * Internal function which does the actual db query in order to try and lookup details based on an optional parentId and name
    *
    * @param details an option containing the parent details
-   * @param name     the name of the node to lookup
+   * @param name    the name of the node to lookup
    * @return A [[DbContextResult]]
    */
-  private def queryChildByName(details: Option[NodeCoreDetails], name: String): DbContextResult[NodeCoreDetails] = {
+  private def queryChildByName(details: Option[NodeDetails], name: String): DbContextResult[NodeDetails] = {
     try {
-      db.withConnection { implicit c =>
-        implicit val config: FacadeConfig = facadeConfig
-        val parentId = details.fold(-1L)(d => deriveParentId(d))
-        val results = NodeQueries.nodeDetailsByNameSql.on("p1" -> parentId).on("p2" -> name).as(nodeCoreDetailsParser.*)
-        if (results.isEmpty) {
-          Left(new Throwable("No node with that name exists"))
-        } else {
-          Right(results.head)
-        }
-      }
+      implicit val config = facadeConfig
+      val parentId = details.fold(-1L)(d => deriveParentId(d))
+      Right(loadNodeDetails(parentId, name))
     } catch {
       case t: Throwable =>
         log.error(s"Query breakdown '${t.getMessage}")
@@ -112,13 +152,13 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param details an instance of [[NodeCoreDetails]]
    * @return
    */
-  @inline def deriveParentId(details: NodeCoreDetails): Long = {
-    if (details.isAlias) {
-      details.originDataId
-    } else if (details.isVolume) {
-      -details.dataId
+  @inline def deriveParentId(details: NodeDetails): Long = {
+    if (details.core.isAlias) {
+      details.core.originDataId
+    } else if (details.core.isVolume) {
+      -details.core.dataId
     } else {
-      details.dataId
+      details.core.dataId
     }
   }
 
@@ -128,25 +168,25 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param path the path to resolve
    * @return a [[Future]]
    */
-  private def resolvePath(path: List[String]): Future[Option[NodeCoreDetails]] = {
+  private def resolvePath(path: List[String]): Future[Option[NodeDetails]] = {
 
     if (path.isEmpty) Future.successful(None)
     Future {
       blocking {
         val prefix = new ListBuffer[String]
-        var result: Option[NodeCoreDetails] = None
+        var result: Option[NodeDetails] = None
         for (segment <- path) {
           prefix += segment
           val prefixCacheKey = prefix.toList.mkString("/")
-          cache.get[NodeCoreDetails](prefixCacheKey) match {
+          cache.get[NodeDetails](prefixCacheKey) match {
             case Some(details) =>
-              log.trace(s"Prefix cache *hit* for '${prefixCacheKey}'")
+              log.trace(s"Prefix cache *hit* for '$prefixCacheKey'")
               result = Some(details)
             case None =>
-              log.trace(s"Prefix cache *miss* for '${prefixCacheKey}'")
+              log.trace(s"Prefix cache *miss* for '$prefixCacheKey'")
               queryChildByName(result, segment) match {
                 case Right(details) =>
-                  log.trace(s"Setting prefix cache entry for '${prefixCacheKey}' [${details}]")
+                  log.trace(s"Setting prefix cache entry for '$prefixCacheKey' [$details]")
                   cache.set(prefixCacheKey, details, facadeConfig.idCacheLifetime)
                   result = Some(details)
                 case Left(t) =>
@@ -165,15 +205,15 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param path a list of path elements, which when combined form a complete relative path of the form A/B/C
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeCoreDetails]] instance or a [[Throwable]]
    */
-  override def queryNodeCoreDetailsByPath(path: List[String]): Future[DbContextResult[NodeCoreDetails]] = {
+  override def queryNodeDetailsByPath(path: List[String]): Future[DbContextResult[NodeDetails]] = {
     val combined = path.mkString("/")
     log.trace(s"Lookup for path '$combined'")
-    cache.get[NodeCoreDetails](combined) match {
+    cache.get[NodeDetails](combined) match {
       case Some(details) =>
-        log.trace(s"Full cache *hit* for '${combined}'")
+        log.trace(s"Full cache *hit* for '$combined'")
         Future.successful(Right(details))
       case None =>
-        log.trace(s"Full cache *miss* for '${combined}'")
+        log.trace(s"Full cache *miss* for '$combined'")
         resolvePath(path) map {
           case Some(details) =>
             Right(details)
@@ -189,14 +229,17 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param details the [[NodeCoreDetails]] for the parent
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
    */
-  override def queryChildrenCoreDetails(details: NodeCoreDetails): Future[DbContextResult[List[NodeCoreDetails]]] = {
+  override def queryChildrenDetails(details: NodeDetails): Future[DbContextResult[List[NodeDetails]]] = {
     Future {
       blocking {
         try {
           db.withConnection { implicit c =>
             implicit val config: FacadeConfig = facadeConfig
             val parentId = deriveParentId(details)
-            Right(NodeQueries.nodeChildrenById.on("p1" -> parentId).as(nodeCoreDetailsParser.*))
+            val children: List[NodeCoreDetails] = NodeQueries.nodeChildrenByIdSql.on("p1" -> parentId).as(nodeCoreDetailsParser.*)
+            Right(children map { child =>
+              loadNodeDetails(child.dataId)
+            })
           }
         } catch {
           case t: Throwable =>
@@ -213,14 +256,12 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param id the id of the node to search for
    * @return a result hopefully containing a [[NodeCoreDetails]] instance
    */
-  override def queryNodeCoreDetailsById(id: Long): Future[DbContextResult[NodeCoreDetails]] = {
+  override def queryNodeDetailsById(id: Long): Future[DbContextResult[NodeDetails]] = {
     Future {
       blocking {
         try {
-          db.withConnection { implicit connection =>
-            implicit val config: FacadeConfig = facadeConfig
-            Right(NodeQueries.nodeDetailsById.on("p1" -> id).as(nodeCoreDetailsParser.single))
-          }
+          implicit val config: FacadeConfig = facadeConfig
+          Right(loadNodeDetails(id))
         } catch {
           case t: Throwable =>
             log.error(s"Query breakdown '${t.getMessage}'")
@@ -249,17 +290,22 @@ object SqlServerDbContext {
   object NodeQueries {
 
 
-
     /**
      * SQL used to lookup a node based on name and parent id. Make sure that only positive DataID values are returned in order to cater for
      * volumes, which have two different reciprocal values (one +ve, one -ve)
      */
-    def nodeDetailsByNameSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
+    def nodeCoreByNameSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
       s"""select ParentID, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
                                                             from ${config.dbSchema}.DTreeCore
                                                               where ParentID = {p1} and Name = {p2} and DataID > 0""")
 
-    def nodeDetailsById(implicit config: FacadeConfig) : SimpleSql[Row] = SQL(
+    /**
+     * SQL to retrieve the basic details associated with a given node, based on the DataID
+     *
+     * @param config an implicit [[FacadeConfig]] to get the correct schema prefix
+     * @return
+     */
+    def nodeCoreByIdSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
       s"""
          |select ParentId, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
          |  from ${config.dbSchema}.DTreeCore
@@ -269,13 +315,52 @@ object SqlServerDbContext {
 
     /**
      * SQL used to retrieve a list of child nodes for a given parent id
+     *
+     * @param config an implicit [[FacadeConfig]] to get the correct schema prefix
      */
-    def nodeChildrenById(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
+    def nodeChildrenByIdSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
       s"""
          |select ParentID, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
          |   from ${config.dbSchema}.DTreeCore
          |     where ParentID = {p1}
          |""".stripMargin)
+
+    /**
+     * SQL used to retrieve a list of category/attribute pairs for a given node
+     *
+     * @param config an implicit [[FacadeConfig]] used to get the correct schema prefix
+     * @return
+     */
+    def nodeAttributesByIdSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
+      s"""
+         |select c.Category, c.Attribute,
+         |	b.AttrType, b.ValDate, b.ValInt, b.ValLong, b.ValReal, b.ValStr
+         |from ${config.dbSchema}.DTreeCore a inner join ${config.dbSchema}.LLAttrData b on a.DataID = b.ID
+         |inner join
+         |	( select *
+         |	from ${config.dbSchema}.Facade_Attributes) c
+         |		on b.DefID = c.CategoryId
+         |		and b.DefVerN = c.CategoryVersion
+         |		and b.AttrID = c.AttributeIndex
+         |	where a.DataID = {p1}
+         |		and b.VerNum = a.VersionNum
+         |		order by c.Category, c.AttributeIndex
+         |""".stripMargin
+    )
+
+    /**
+     * SQL user to retrieve the version details for a given node, based on id
+     *
+     * @param config an implicit [[FacadeConfig]] used to get the correct schema prefix
+     * @return
+     */
+    def nodeVersionsByIdSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
+      s"""
+         | select  VersionID, Version, VerCDate, VerMDate, FileCDate, FileMDate, FileName, DataSize, MimeType
+         | from ${config.dbSchema}.DVersData
+         |  where DocID = {p1}
+         |""".stripMargin
+    )
 
   }
 

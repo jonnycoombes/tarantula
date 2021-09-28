@@ -25,22 +25,22 @@ trait DbContext {
   /**
    * Executes a series of queries in order to retrieve the core details about a node identified by a path relative to a root
    * @param path a list of path elements, which when combined form a complete relative path of the form A/B/C
-   * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeCoreDetails]] instance or a [[Throwable]]
+   * @return a [[Future]] containing a [[DbContextResult]] which can either be a [[NodeDetails]] instance or a [[Throwable]]
    */
-  def queryNodeCoreDetailsByPath(path : List[String]) : Future[DbContextResult[NodeCoreDetails]]
+  def queryNodeDetailsByPath(path : List[String]) : Future[DbContextResult[NodeDetails]]
 
   /**
    * Returns a list of the child ids for a given node
-   * @param details the [[NodeCoreDetails]] for the parent
+   * @param details the [[NodeDetails]] for the parent
    * @return a [[Future]] containing a [[DbContextResult]] which can either be a list of node ids or a [[Throwable]]
    */
-  def queryChildrenCoreDetails(details : NodeCoreDetails) : Future[DbContextResult[List[NodeCoreDetails]]]
+  def queryChildrenDetails(details : NodeDetails) : Future[DbContextResult[List[NodeDetails]]]
 
   /**
    * Queries for the [[NodeCoreDetails]] of a node given an id
    * @param id the id of the node to search for
-   * @return a result hopefully containing a [[NodeCoreDetails]] instance
+   * @return a result hopefully containing a [[NodeDetails]] instance
    */
-  def queryNodeCoreDetailsById(id : Long) : Future[DbContextResult[NodeCoreDetails]]
+  def queryNodeDetailsById(id : Long) : Future[DbContextResult[NodeDetails]]
 
 }

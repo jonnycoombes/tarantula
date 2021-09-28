@@ -1,7 +1,7 @@
 package facade.repository
 
 import facade.cws.DownloadedContent
-import facade.db.NodeCoreDetails
+import facade.db.{NodeCoreDetails, NodeDetails}
 import play.api.libs.json.JsObject
 
 import java.nio.file.Path
@@ -32,7 +32,7 @@ trait Repository {
    *
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
-  def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]]
+  def resolvePath(path: List[String]): Future[RepositoryResult[NodeDetails]]
 
   /**
    * Renders a node into a [[JsObject]] representation
@@ -41,7 +41,7 @@ trait Repository {
    * @param depth   the depth of the rendition (number of levels of children)
    * @return a [[JsObject]] representing the node
    */
-  def renderNodeToJson(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]]
+  def renderNodeToJson(details: NodeDetails, depth: Int): Future[RepositoryResult[JsObject]]
 
   /**
    * Retrieve the contents of a given node (i.e. document)
@@ -50,7 +50,7 @@ trait Repository {
    * @param version the version to retrieve. If set to None, then the latest version will be retrieved
    * @return a [[DownloadedContent]] instance containing details about the temporary file location for the file
    */
-  def retrieveNodeContent(details: NodeCoreDetails, version: Option[Long]): Future[RepositoryResult[DownloadedContent]]
+  def retrieveNodeContent(details: NodeDetails, version: Option[Long]): Future[RepositoryResult[DownloadedContent]]
 
   /**
    * Uploads a file to a given location, either adding a new document or adding a version to an existing document. This method will then
@@ -63,7 +63,7 @@ trait Repository {
    * @param size          the size of content to upload
    * @return
    */
-  def uploadContent(parentDetails: NodeCoreDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
+  def uploadContent(parentDetails: NodeDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
   : Future[RepositoryResult[JsObject]]
 
   /**
@@ -73,7 +73,7 @@ trait Repository {
    * @param meta    a [[JsObject]] containing the KV pairs defining the updates to make
    * @return a [[JsObject]] rendition of the updated
    */
-  def updateNodeMetaData(details: NodeCoreDetails, meta: JsObject): Future[RepositoryResult[JsObject]]
+  def updateNodeMetaData(details: NodeDetails, meta: JsObject): Future[RepositoryResult[JsObject]]
 
 
 }

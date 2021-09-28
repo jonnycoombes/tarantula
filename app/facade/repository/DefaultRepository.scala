@@ -2,7 +2,7 @@ package facade.repository
 
 import facade._
 import facade.cws.{CwsProxy, DownloadedContent}
-import facade.db.{DbContext, NodeCoreDetails}
+import facade.db.{DbContext, NodeDetails}
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsArray, JsObject, Json}
@@ -91,10 +91,10 @@ class DefaultRepository @Inject()(configuration: Configuration,
    *
    * @return a [[RepositoryResult]] either containing a valid identifier, or an error wrapped within a [[Throwable]]
    */
-  override def resolvePath(path: List[String]): Future[RepositoryResult[NodeCoreDetails]] = {
-    val nodeId = dbContext.queryNodeCoreDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
+  override def resolvePath(path: List[String]): Future[RepositoryResult[NodeDetails]] = {
+    val nodeId = dbContext.queryNodeDetailsByPath(applyPathExpansions(path.map(s => URLDecoder.decode(s, "UTF-8"))))
     nodeId map {
-      case Right(id) => Right(id)
+      case Right(details) => Right(details)
       case Left(t) => Left(t)
     }
   }
@@ -122,10 +122,10 @@ class DefaultRepository @Inject()(configuration: Configuration,
   /**
    * Renders a node into a [[JsObject]] representation
    *
-   * @param details the [[NodeCoreDetails]] for the node
+   * @param details the [[NodeDetails]] for the node
    * @return a [[JsObject]] representing the node
    */
-  override def renderNodeToJson(details: NodeCoreDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
+  override def renderNodeToJson(details: NodeDetails, depth: Int): Future[RepositoryResult[JsObject]] = {
     log.trace(s"Rendering node [$details, depth=$depth]")
     recursiveRender(details, depth).map {
       Right(_)
@@ -137,13 +137,13 @@ class DefaultRepository @Inject()(configuration: Configuration,
   /**
    * Retrieve the contents of a given node (i.e. document)
    *
-   * @param details the [[NodeCoreDetails]] associated with the document
+   * @param details the [[NodeDetails]] associated with the document
    * @param version the version to retrieve. If set to None, then the latest version will be retrieved
    * @return a [[FileInformation]] instance containing details about the temporary file location for the file
    */
-  override def retrieveNodeContent(details: NodeCoreDetails, version: Option[Long]): Future[RepositoryResult[DownloadedContent]] = {
+  override def retrieveNodeContent(details: NodeDetails, version: Option[Long]): Future[RepositoryResult[DownloadedContent]] = {
     log.trace(s"Downloading content for $details")
-    cwsProxy.downloadNodeVersion(details.dataId, version) map {
+    cwsProxy.downloadNodeVersion(details.core.dataId, version) map {
       case Right(info) =>
         Right(info)
       case Left(t) =>
@@ -158,22 +158,22 @@ class DefaultRepository @Inject()(configuration: Configuration,
   /**
    * Recursively renders a node to Json, returning a [[Future]]. This method is cache aware
    *
-   * @param details the [[NodeCoreDetails]] of the node to render
+   * @param details the [[NodeDetails]] of the node to render
    * @param depth   the depth to depth
    * @return
    */
-  private def recursiveRender(details: NodeCoreDetails, depth: Int): Future[JsObject] = {
+  private def recursiveRender(details: NodeDetails, depth: Int): Future[JsObject] = {
     log.trace(s"Rendering $details at depth=$depth")
-    cwsProxy.nodeById(details.dataId) flatMap {
+    cwsProxy.nodeById(details.core.dataId) flatMap {
       case Right(node) =>
-        val nodeAsJson = jsonCache.get[JsObject](details.dataId.toHexString) match {
+        val nodeAsJson = jsonCache.get[JsObject](details.core.dataId.toString) match {
           case Some(json) =>
-            log.trace(s"Json cache *hit* for id=${details.dataId}")
+            log.trace(s"Json cache *hit* for id=${details.core.dataId}")
             json
           case None =>
-            log.trace(s"Json cache *miss* for id=${details.dataId}")
+            log.trace(s"Json cache *miss* for id=${details.core.dataId}")
             val json = JsonRenderers.renderNodeToJson(node)
-            jsonCache.set(details.dataId.toHexString, json, facadeConfig.jsonCacheLifetime)
+            jsonCache.set(details.core.dataId.toString, json, facadeConfig.jsonCacheLifetime)
             json
         }
 
@@ -181,7 +181,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
           case 0 =>
             Future.successful(nodeAsJson)
           case _ =>
-            dbContext.queryChildrenCoreDetails(details) flatMap {
+            dbContext.queryChildrenDetails(details) flatMap {
               case Right(l) =>
                 Future.sequence(l.map(recursiveRender(_, depth - 1))) map { children =>
                   if (children.isEmpty) {
@@ -194,7 +194,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
             }
         }
       case Left(_) =>
-        Future.successful(Json.obj("id" -> details.dataId, "unsupportedNodeType" -> true))
+        Future.successful(Json.obj("id" -> details.core.dataId, "unsupportedNodeType" -> true))
     }
   }
 
@@ -202,18 +202,18 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * Uploads a file to a given location, either adding a new document or adding a version to an existing document. This method will then
    * return a rendition of the new/existing node as a [[JsObject]]
    *
-   * @param parentDetails the [[NodeCoreDetails]] associated with the parent node, or the node to add a version to
+   * @param parentDetails the [[NodeDetails]] associated with the parent node, or the node to add a version to
    * @param meta          a [[JsObject]] containing the KV pairs to be applied as meta-data for the uploaded document
    * @param filename      the original/required filename for the document
    * @param source        the path to a file containing the contents of the document
    * @param size          the size of content to upload
    * @return
    */
-  override def uploadContent(parentDetails: NodeCoreDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
+  override def uploadContent(parentDetails: NodeDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
   : Future[RepositoryResult[JsObject]] = {
-    cwsProxy.uploadNodeContent(parentDetails.dataId, meta, filename, source, size) flatMap {
+    cwsProxy.uploadNodeContent(parentDetails.core.dataId, meta, filename, source, size) flatMap {
       case Right(node) =>
-        dbContext.queryNodeCoreDetailsById(node.getID) flatMap {
+        dbContext.queryNodeDetailsById(node.getID) flatMap {
           case Right(details) =>
             renderNodeToJson(details, 0)
           case Left(t) =>
@@ -226,16 +226,16 @@ class DefaultRepository @Inject()(configuration: Configuration,
   }
 
   /**
-   * Updates the meta-data associated with a given [[NodeCoreDetails]] instance
+   * Updates the meta-data associated with a given [[NodeDetails]] instance
    *
-   * @param details the [[NodeCoreDetails]] associated with the node to update
+   * @param details the [[NodeDetails]] associated with the node to update
    * @param meta    a [[JsObject]] containing the KV pairs defining the updates to make
    * @return a [[JsObject]] rendition of the updated node
    */
-  override def updateNodeMetaData(details: NodeCoreDetails, meta: JsObject): Future[RepositoryResult[JsObject]] = {
-    cwsProxy.updateNodeMetaData(details.dataId, meta) flatMap {
+  override def updateNodeMetaData(details: NodeDetails, meta: JsObject): Future[RepositoryResult[JsObject]] = {
+    cwsProxy.updateNodeMetaData(details.core.dataId, meta) flatMap {
       case Right(_) =>
-        jsonCache.remove(details.dataId.toHexString)
+        jsonCache.remove(details.core.dataId.toHexString)
         renderNodeToJson(details, 0)
       case Left(t) =>
         Future.successful(Left(t))
