@@ -95,13 +95,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return an [[OTAuthentication]] structure containing the authentication token, otherwise an exception
    */
   def authenticate(): Future[CwsProxyResult[OTAuthentication]] = {
-    blocking {
       val user = facadeConfig.cwsUser.getOrElse("Admin")
       val password = facadeConfig.cwsPassword.getOrElse("livelink")
       authClient.authenticateUser(user, password)
         .map(s => Right(wrapToken(s)))
         .recover({ case t => log.error(t.getMessage); throw t })
-    }
   }
 
 
@@ -205,7 +203,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return
    */
   override def serverInfo(): Future[CwsProxyResult[ServerInfo]] = {
-    blocking {
       adminClient.getServerInfo map { info: ServerInfo =>
         Right(info)
       } recover {
@@ -213,7 +210,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           log.error(t.getMessage)
           Left(t)
       }
-    }
   }
 
   /**
@@ -223,16 +219,17 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return a [[Future]] wrapping a [[CwsProxyResult]]
    */
   override def nodeById(id: Long): Future[CwsProxyResult[Node]] = {
-    blocking {
-      nodeCache.get[Node](id.toHexString) match {
+      nodeCache.get[Node](id.toString) match {
         case Some(node) =>
           log.trace(s"Node cache *hit* for id=$id")
           Future.successful(Right(node))
         case None =>
           log.trace(s"Node cache *miss* for id=$id")
+          val startTime = System.currentTimeMillis()
           docManClient.getNode(id) map { node: Node =>
+            log.trace(s"Node retrieval future op executed in ${System.currentTimeMillis() - startTime} ms")
             if (node != null) {
-              nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
+              nodeCache.set(id.toString, node, facadeConfig.nodeCacheLifetime)
               Right(node)
             } else Left(new Throwable(s"Looks as if the node type for id=$id isn't supported by CWS"))
           } recover {
@@ -241,7 +238,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
               Left(t)
           }
       }
-    }
   }
 
   /**
@@ -253,10 +249,11 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    */
   override def downloadNodeVersion(id: Long, versionNumber: Option[Long]): Future[CwsProxyResult[DownloadedContent]] = {
     log.trace(s"Content retrieval [$id, $versionNumber]")
-    blocking {
+      val startTime = System.currentTimeMillis()
       docManClient.getVersion(id, versionNumber.getOrElse(0)) flatMap { version =>
         docManClient.getVersionContentsContext(id, versionNumber.getOrElse(0)) flatMap { cookie =>
           contentClient.downloadContent(cookie) map { handler =>
+            log.trace(s"Download future ops sequence executed in ${System.currentTimeMillis() - startTime} ms")
             val tempFile = play.libs.Files.singletonTemporaryFileCreator().asScala().create(prefix = "fcs", suffix = s".${version
               .getFileType}").path.toFile
             Files.copy(handler.getInputStream, tempFile.toPath, StandardCopyOption.REPLACE_EXISTING)
@@ -269,7 +266,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           log.error(t.getMessage)
           Left(t)
       }
-    }
   }
 
   /**
@@ -284,17 +280,18 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    */
   override def uploadNodeContent(parentId: Long, meta: Option[JsObject], filename: String, source: Path, size: Long)
   : Future[CwsProxyResult[Node]] = {
-    blocking {
       log.trace(s"Uploading ${size} bytes of content from '${source}'")
       nodeById(parentId) flatMap {
         case Right(parent) =>
           val attachment = createAttachment(source, filename)
           if (parent.isIsContainer) {
+            val startTime = System.currentTimeMillis()
             log.trace(s"Uploading ${source} as new document object")
             docManClient.getNodeTemplate(parentId, "Document") flatMap { template =>
               updateMetadata(template.getMetadata, meta)
               template.setName(filename)
               docManClient.createNodeAndVersion(template, attachment) map { node =>
+                log.trace(s"Upload future ops sequence executed in ${System.currentTimeMillis() - startTime} ms")
                 Right(node)
               }
             }
@@ -309,7 +306,6 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           log.error(t.getMessage)
           Future.successful(Left(t))
       }
-    }
   }
 
   /**
@@ -457,20 +453,20 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    * @return the updated [[Node]]
    */
   override def updateNodeMetaData(id: Long, meta: JsObject): Future[CwsProxyResult[Node]] = {
-    blocking {
       log.trace(s"Updating meta-data for node with id=$id")
       nodeById(id) flatMap {
         case Right(node) =>
           updateMetadata(node.getMetadata, Some(meta))
           nodeCache.set(id.toHexString, node, facadeConfig.nodeCacheLifetime)
+          val startTime = System.currentTimeMillis()
           docManClient.updateNode(node) flatMap { _ =>
+              log.trace(s"Update future op executed in ${System.currentTimeMillis() - startTime} ms")
               nodeById(id)
           }
         case Left(t)=>
           log.error(t.getMessage)
           Future.successful(Left(t))
       }
-    }
   }
 }
 
