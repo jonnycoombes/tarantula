@@ -1,7 +1,7 @@
 package facade.repository
 
 import facade.cws.DownloadedContent
-import facade.db.{NodeCoreDetails, NodeDetails}
+import facade.db.Model._
 import play.api.libs.json.JsObject
 
 import java.nio.file.Path

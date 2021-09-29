@@ -1,8 +1,9 @@
 package facade.db
 
-import akka.parboiled2.CharPredicate.General
 import anorm.SqlParser.scalar
 import anorm._
+import facade.db.Model._
+import facade.db.RowParsers._
 import facade.db.SqlServerDbContext.{GeneralQueries, NodeQueries}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.{NamedCache, SyncCacheApi}
@@ -30,7 +31,7 @@ case class PathResolutionState(lastDetails: Option[NodeCoreDetails], prefix: Str
 @Singleton
 class SqlServerDbContext @Inject()(configuration: Configuration,
                                    lifecycle: ApplicationLifecycle,
-                                   @NamedCache("db-cache") cache: SyncCacheApi,
+                                   @NamedCache("db-cache") dbCache: SyncCacheApi,
                                    db: Database,
                                    implicit val dbExecutionContext: DbExecutionContext)
   extends
@@ -49,7 +50,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   queryChildByName(None, "Enterprise") match {
     case Right(details) =>
       log.trace("Caching Enterprise details")
-      cache.set("Enterprise", details, facadeConfig.idCacheLifetime)
+      dbCache.set("Enterprise", details, facadeConfig.dbCacheLifetime)
     case Left(ex) =>
       throw ex
   }
@@ -90,12 +91,22 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
   private def loadNodeDetails(id: Long)(implicit config: FacadeConfig): NodeDetails = {
     try {
       log.trace(s"loadNodeDetails id=$id")
-      db.withConnection { implicit c =>
-        val core = NodeQueries.nodeCoreByIdSql.on("p1" -> id).as(nodeCoreDetailsParser.single)
-        val versions = NodeQueries.nodeVersionsByIdSql.on("p1" -> id).as(nodeVersionDetailsParser.*)
-        val attributes = NodeQueries.nodeAttributesByIdSql.on("p1" -> id).as(nodeAttributeDetailsParser.*)
-        NodeDetails(core, versions, attributes)
+      dbCache.get[NodeDetails](id.toString) match {
+        case Some(details) =>
+          log.trace(s"Db cache *hit* for id=$id")
+          details
+        case None =>
+          log.trace(s"Db cache *miss* for id=$id")
+          db.withConnection { implicit c =>
+            val core = NodeQueries.nodeCoreByIdSql.on("p1" -> id).as(nodeCoreDetailsParser.single)
+            val versions = NodeQueries.nodeVersionsByIdSql.on("p1" -> id).as(nodeVersionDetailsParser.*)
+            val attributes = NodeQueries.nodeAttributesByIdSql.on("p1" -> id).as(nodeAttributeDetailsParser.*)
+            val details= NodeDetails(core, versions, attributes)
+            dbCache.set(id.toString, details, facadeConfig.dbCacheLifetime)
+            details
+          }
       }
+
     } catch {
       case t: Throwable =>
         log.error(s"Query breakdown '${t.getMessage}'")
@@ -178,16 +189,16 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
         for (segment <- path) {
           prefix += segment
           val prefixCacheKey = prefix.toList.mkString("/")
-          cache.get[NodeDetails](prefixCacheKey) match {
+          dbCache.get[NodeDetails](prefixCacheKey) match {
             case Some(details) =>
-              log.trace(s"Prefix cache *hit* for '$prefixCacheKey'")
+              log.trace(s"Db cache cache *hit* for '$prefixCacheKey'")
               result = Some(details)
             case None =>
-              log.trace(s"Prefix cache *miss* for '$prefixCacheKey'")
+              log.trace(s"Db cache cache *miss* for '$prefixCacheKey'")
               queryChildByName(result, segment) match {
                 case Right(details) =>
-                  log.trace(s"Setting prefix cache entry for '$prefixCacheKey' [$details]")
-                  cache.set(prefixCacheKey, details, facadeConfig.idCacheLifetime)
+                  log.trace(s"Setting Db cache cache entry for '$prefixCacheKey' [$details]")
+                  dbCache.set(prefixCacheKey, details, facadeConfig.dbCacheLifetime)
                   result = Some(details)
                 case Left(t) =>
                   result = None
@@ -207,13 +218,13 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    */
   override def queryNodeDetailsByPath(path: List[String]): Future[DbContextResult[NodeDetails]] = {
     val combined = path.mkString("/")
-    log.trace(s"Lookup for path '$combined'")
-    cache.get[NodeDetails](combined) match {
+    log.trace(s"Db cache lookup for path '$combined'")
+    dbCache.get[NodeDetails](combined) match {
       case Some(details) =>
-        log.trace(s"Full cache *hit* for '$combined'")
+        log.trace(s"Db cache *hit* for '$combined'")
         Future.successful(Right(details))
       case None =>
-        log.trace(s"Full cache *miss* for '$combined'")
+        log.trace(s"Db cache *miss* for '$combined'")
         resolvePath(path) map {
           case Some(details) =>
             Right(details)

@@ -2,7 +2,8 @@ package facade.repository
 
 import facade._
 import facade.cws.{CwsProxy, DownloadedContent}
-import facade.db.{DbContext, NodeDetails}
+import facade.db.DbContext
+import facade.db.Model._
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsArray, JsObject, Json}
@@ -164,38 +165,35 @@ class DefaultRepository @Inject()(configuration: Configuration,
    */
   private def recursiveRender(details: NodeDetails, depth: Int): Future[JsObject] = {
     log.trace(s"Rendering $details at depth=$depth")
-    cwsProxy.nodeById(details.core.dataId) flatMap {
-      case Right(node) =>
-        val nodeAsJson = jsonCache.get[JsObject](details.core.dataId.toString) match {
-          case Some(json) =>
-            log.trace(s"Json cache *hit* for id=${details.core.dataId}")
-            json
-          case None =>
-            log.trace(s"Json cache *miss* for id=${details.core.dataId}")
-            val json = JsonRenderers.renderNodeToJson(node)
-            jsonCache.set(details.core.dataId.toString, json, facadeConfig.jsonCacheLifetime)
-            json
-        }
+    import facade.db.JsonWriters._
 
-        depth match {
-          case 0 =>
-            Future.successful(nodeAsJson)
-          case _ =>
-            dbContext.queryChildrenDetails(details) flatMap {
-              case Right(l) =>
-                Future.sequence(l.map(recursiveRender(_, depth - 1))) map { children =>
-                  if (children.isEmpty) {
-                    nodeAsJson
-                  } else {
-                    nodeAsJson ++ Json.obj("children" -> JsArray(children))
-                  }
-                }
-              case Left(_) => Future.successful(Json.obj())
-            }
-        }
-      case Left(_) =>
-        Future.successful(Json.obj("id" -> details.core.dataId, "unsupportedNodeType" -> true))
+    val rendition= jsonCache.get[JsObject](details.core.dataId.toString) match {
+      case Some(json) =>
+        log.trace(s"Json cache *hit* for id=${details.core.dataId}")
+        json
+      case None =>
+        log.trace(s"Json cache *miss* for id=${details.core.dataId}")
+        val json = Json.toJson(details).asInstanceOf[JsObject]
+        jsonCache.set(details.core.dataId.toString, json, facadeConfig.jsonCacheLifetime)
+        json
     }
+
+    depth match {
+      case 0 => Future.successful(rendition)
+      case _ =>
+        dbContext.queryChildrenDetails(details) flatMap {
+          case Right(l) =>
+            Future.sequence(l.filter(d => !d.core.name.startsWith("@[")).map(recursiveRender(_, depth - 1))) map { children =>
+              if (children.isEmpty) {
+                rendition
+              } else {
+                rendition ++ Json.obj("children" -> JsArray(children))
+              }
+            }
+          case Left(_) => Future.successful(Json.obj())
+        }
+    }
+
   }
 
   /**
@@ -235,7 +233,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
   override def updateNodeMetaData(details: NodeDetails, meta: JsObject): Future[RepositoryResult[JsObject]] = {
     cwsProxy.updateNodeMetaData(details.core.dataId, meta) flatMap {
       case Right(_) =>
-        jsonCache.remove(details.core.dataId.toHexString)
+        jsonCache.remove(details.core.dataId.toString)
         renderNodeToJson(details, 0)
       case Left(t) =>
         Future.successful(Left(t))

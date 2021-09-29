@@ -1,5 +1,7 @@
 package facade.db
 
+import facade.db.Model._
+
 import scala.concurrent.Future
 import scala.util.Either
 
@@ -37,7 +39,7 @@ trait DbContext {
   def queryChildrenDetails(details : NodeDetails) : Future[DbContextResult[List[NodeDetails]]]
 
   /**
-   * Queries for the [[NodeCoreDetails]] of a node given an id
+   * Queries for the [[NodeDetails]] of a node given an id
    * @param id the id of the node to search for
    * @return a result hopefully containing a [[NodeDetails]] instance
    */

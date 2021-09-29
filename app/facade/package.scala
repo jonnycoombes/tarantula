@@ -85,7 +85,7 @@ package object facade {
     /**
      * Id cache default lifetime
      */
-    lazy val IdCacheLifetime : Duration = Duration.Inf
+    lazy val DbCacheLifetime : Duration = Duration.Inf
 
     /**
      * The maximum depth to which the tree will be traversed by get requests
@@ -109,7 +109,7 @@ package object facade {
                           pathExpansions : mutable.Map[String, String],
                           nodeCacheLifetime : Duration,
                           tokenCacheLifetime : Duration,
-                          idCacheLifetime : Duration,
+                          dbCacheLifetime : Duration,
                           jsonCacheLifetime : Duration,
                           maximumTreeTraversalDepth: Int,
                           dbSchema : String)
@@ -140,7 +140,7 @@ package object facade {
         pathExpansions = mapPathExpansions(config),
         nodeCacheLifetime = config.getOptional[Duration]("facade.node.cache.lifetime").getOrElse(SystemConstants.NodeCacheLifetime),
         tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(SystemConstants.TokenCacheLifetime),
-        idCacheLifetime = config.getOptional[Duration]("facade.id.cache.lifetime").getOrElse(SystemConstants.IdCacheLifetime),
+        dbCacheLifetime = config.getOptional[Duration]("facade.db.cache.lifetime").getOrElse(SystemConstants.DbCacheLifetime),
         jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(JsonCacheLifetime),
         maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants
           .MaximumTreeTraversalDepth),
