@@ -318,7 +318,7 @@ object SqlServerDbContext {
      */
     def nodeCoreByIdSql(implicit config: FacadeConfig): SimpleSql[Row] = SQL(
       s"""
-         |select ParentId, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
+         |select ParentID, DataID, VersionNum, Name, SubType, OriginDataID, CreateDate, ModifyDate
          |  from ${config.dbSchema}.DTreeCore
          |    where DataID = {p1}
          |""".stripMargin
