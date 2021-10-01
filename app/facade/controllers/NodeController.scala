@@ -37,13 +37,13 @@ class NodeController @Inject()(val cc: ControllerComponents,
    * @param version if retrieving content, the version to be retrieved.
    * @return
    */
-  def get(path: String, depth: Int, content: Boolean, version: Option[Long]): Action[AnyContent] = {
+  def get(path: String, depth: Option[Int], content: Boolean, version: Option[Long]): Action[AnyContent] = {
     if (content) {
       log.trace("New content retrieval request accepted")
       retrieveContent(path, version)
     } else {
       log.trace("New meta-data retrieval request accepted")
-      retrieveMetaData(path, depth)
+      retrieveMetaData(path, depth.getOrElse(facadeConfig.defaultTreeTraversalDepth))
     }
   }
 

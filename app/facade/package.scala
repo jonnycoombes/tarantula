@@ -80,15 +80,20 @@ package object facade {
     /**
      * Json cache default lifetime
      */
-    lazy val JsonCacheLifetime : Duration = 2 hours
+    lazy val JsonCacheLifetime: Duration = 2 hours
 
     /**
      * Id cache default lifetime
      */
-    lazy val DbCacheLifetime : Duration = Duration.Inf
+    lazy val DbCacheLifetime: Duration = Duration.Inf
 
     /**
-     * The maximum depth to which the tree will be traversed by get requests
+     * The default tree traversal depth for meta-data GET requests
+     */
+    lazy val DefaultTreeTraversalDepth = 0
+
+    /**
+     * The maximum depth to which the tree will be traversed by GET requests
      */
     lazy val MaximumTreeTraversalDepth = 3
 
@@ -104,15 +109,16 @@ package object facade {
    */
   case class FacadeConfig(systemIdentifier: String,
                           version: String,
-                          cwsUser : Option[String],
-                          cwsPassword : Option[String],
-                          pathExpansions : mutable.Map[String, String],
-                          nodeCacheLifetime : Duration,
-                          tokenCacheLifetime : Duration,
-                          dbCacheLifetime : Duration,
-                          jsonCacheLifetime : Duration,
+                          cwsUser: Option[String],
+                          cwsPassword: Option[String],
+                          pathExpansions: mutable.Map[String, String],
+                          nodeCacheLifetime: Duration,
+                          tokenCacheLifetime: Duration,
+                          dbCacheLifetime: Duration,
+                          jsonCacheLifetime: Duration,
+                          defaultTreeTraversalDepth: Int,
                           maximumTreeTraversalDepth: Int,
-                          dbSchema : String)
+                          dbSchema: String)
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
@@ -120,13 +126,13 @@ package object facade {
    */
   object FacadeConfig {
 
-    private def mapPathExpansions(config : Configuration) : mutable.Map[String, String] = {
-      val mappedExpansions : mutable.Map[String, String] = mutable.Map[String, String]()
-      val expansions : Iterable[ConfigObject] = config.underlying.getObjectList("facade.path.expansions").asScala
-          for (item <- expansions){
-            mappedExpansions.addOne((item.keySet().toArray()(0).toString,
-                                    item.entrySet().iterator().next().getValue.unwrapped().toString))
-          }
+    private def mapPathExpansions(config: Configuration): mutable.Map[String, String] = {
+      val mappedExpansions: mutable.Map[String, String] = mutable.Map[String, String]()
+      val expansions: Iterable[ConfigObject] = config.underlying.getObjectList("facade.path.expansions").asScala
+      for (item <- expansions) {
+        mappedExpansions.addOne((item.keySet().toArray()(0).toString,
+          item.entrySet().iterator().next().getValue.unwrapped().toString))
+      }
       mappedExpansions
     }
 
@@ -142,6 +148,8 @@ package object facade {
         tokenCacheLifetime = config.getOptional[Duration]("facade.token.cache.lifetime").getOrElse(SystemConstants.TokenCacheLifetime),
         dbCacheLifetime = config.getOptional[Duration]("facade.db.cache.lifetime").getOrElse(SystemConstants.DbCacheLifetime),
         jsonCacheLifetime = config.getOptional[Duration]("facade.json.cache.lifetime").getOrElse(JsonCacheLifetime),
+        defaultTreeTraversalDepth = config.getOptional[Int]("facade.default.traversal.depth").getOrElse(SystemConstants
+          .DefaultTreeTraversalDepth),
         maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants
           .MaximumTreeTraversalDepth),
         dbSchema = config.getOptional[String]("facade.db.schema").getOrElse(SystemConstants.DefaultDbSchema)
