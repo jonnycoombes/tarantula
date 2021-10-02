@@ -21,7 +21,7 @@ import javax.xml.namespace.QName
 import javax.xml.ws.handler.MessageContext
 import javax.xml.ws.handler.soap.{SOAPHandler, SOAPMessageContext}
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future, blocking}
+import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
 
@@ -108,7 +108,7 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
    *
    * @return a valid authentication token
    */
-  private[DefaultCwsProxy] def resolveToken(): String = {
+  override def resolveToken(): String = {
     val cachedToken = tokenCache.get("cachedToken")
     if (cachedToken.isDefined) {
       log.trace("Found cached authentication token")
