@@ -75,7 +75,11 @@ class DefaultRepository @Inject()(configuration: Configuration,
       val serverInfo = s._1
       val schemaVersion = s._2
       if (serverInfo.isRight && schemaVersion.isRight) {
-        RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get)
+        if (facadeConfig.pingToken) {
+          RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get, cwsProxy.resolveToken())
+        }else{
+          RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get)
+        }
       } else if (serverInfo.isRight && schemaVersion.isLeft) {
         RepositoryState(facadeConfig, serverInfo.toOption.get)
       } else if (serverInfo.isLeft && schemaVersion.isLeft) {

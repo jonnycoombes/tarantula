@@ -118,6 +118,7 @@ package object facade {
                           jsonCacheLifetime: Duration,
                           defaultTreeTraversalDepth: Int,
                           maximumTreeTraversalDepth: Int,
+                          pingToken : Boolean,
                           dbSchema: String)
 
   /**
@@ -152,6 +153,7 @@ package object facade {
           .DefaultTreeTraversalDepth),
         maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants
           .MaximumTreeTraversalDepth),
+        pingToken = config.getOptional[Boolean]("facade.ping.token").getOrElse(false),
         dbSchema = config.getOptional[String]("facade.db.schema").getOrElse(SystemConstants.DefaultDbSchema)
       )
     }
