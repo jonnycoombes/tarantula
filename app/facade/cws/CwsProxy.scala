@@ -38,6 +38,12 @@ trait CwsProxy {
   def serverInfo(): Future[CwsProxyResult[ServerInfo]]
 
   /**
+   * Resolves an authentication token by either retrieving a valid token from the cache, or by carrying out an authentication
+   * @return the unwrapped authentication token
+   */
+  def resolveToken() : String
+
+  /**
    * Retrieve a node based on it's id
    *
    * @param id the id of the node
