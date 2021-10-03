@@ -468,6 +468,16 @@ class DefaultCwsProxy @Inject()(configuration: Configuration,
           Future.successful(Left(t))
       }
   }
+
+  /**
+   * Requests that the proxy clears any cached information relating to the given node identifier
+   *
+   * @param id a node identifier
+   */
+  override def clearCachedContent(id: Long): Unit = {
+    log.trace(s"Clearing cache entries for id=$id")
+    nodeCache.remove(id.toString)
+  }
 }
 
 /**

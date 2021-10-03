@@ -281,6 +281,16 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
       }
     }
   }
+
+  /**
+   * Requests that the context clears any cached information relating to the given node identifier
+   *
+   * @param id a node identifier
+   */
+  override def clearCachedContent(id: Long): Unit = {
+    log.trace(s"Clearing cache entries for id=$id")
+    dbCache.remove(id.toString)
+  }
 }
 
 /**

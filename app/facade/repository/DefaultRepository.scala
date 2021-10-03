@@ -29,6 +29,7 @@ import scala.concurrent.Future
  * @param cwsProxy      the [[CwsProxy]] service
  *
  */
+//noinspection DuplicatedCode
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
@@ -236,9 +237,16 @@ class DefaultRepository @Inject()(configuration: Configuration,
    */
   override def updateNodeMetaData(details: NodeDetails, meta: JsObject): Future[RepositoryResult[JsObject]] = {
     cwsProxy.updateNodeMetaData(details.core.dataId, meta) flatMap {
-      case Right(_) =>
+      case Right(node) =>
         jsonCache.remove(details.core.dataId.toString)
-        renderNodeToJson(details, 0)
+        cwsProxy.clearCachedContent(details.core.dataId)
+        dbContext.clearCachedContent(details.core.dataId)
+        dbContext.queryNodeDetailsById(node.getID) flatMap {
+          case Right(details) =>
+            renderNodeToJson(details, 0)
+          case Left(t) =>
+            Future.successful(Left(t))
+        }
       case Left(t) =>
         Future.successful(Left(t))
     }
