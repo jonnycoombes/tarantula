@@ -52,6 +52,12 @@ trait CwsProxy {
   def nodeById(id: Long): Future[CwsProxyResult[Node]]
 
   /**
+   * Requests that the proxy clears any cached information relating to the given node identifier
+   * @param id a node identifier
+   */
+  def clearCachedContent(id: Long) : Unit
+
+  /**
    * Attempts to retrieve the content associated with a given node version
    *
    * @param id      the id for the node
