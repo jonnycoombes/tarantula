@@ -291,6 +291,14 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
     log.trace(s"Clearing cache entries for id=$id")
     dbCache.remove(id.toString)
   }
+
+  /**
+   * Executes a query which is presented in the defined query grammar defined within  [[QueryParser]]
+   *
+   * @param query a query defined in terms of the grammar implemented and understood by [[QueryParser]]
+   * @return an optional result containing a list of [[NodeDetails]] instances representing hits against the query
+   */
+  override def executeQuery(query: String): Future[DbContextResult[List[NodeDetails]]] = ???
 }
 
 /**

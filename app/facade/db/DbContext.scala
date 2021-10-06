@@ -1,6 +1,7 @@
 package facade.db
 
 import facade.db.Model._
+import facade.db.search.QueryParser
 
 import scala.concurrent.Future
 import scala.util.Either
@@ -55,4 +56,12 @@ trait DbContext {
    * @param id a node identifier
    */
   def clearCachedContent(id: Long): Unit
+
+  /**
+   * Executes a query which is presented in the defined query grammar defined within  [[QueryParser]]
+   *
+   * @param query a query defined in terms of the grammar implemented and understood by [[QueryParser]]
+   * @return an optional result containing a list of [[NodeDetails]] instances representing hits against the query
+   */
+  def executeQuery(query: String): Future[DbContextResult[List[NodeDetails]]]
 }
