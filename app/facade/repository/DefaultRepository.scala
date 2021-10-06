@@ -251,4 +251,15 @@ class DefaultRepository @Inject()(configuration: Configuration,
         Future.successful(Left(t))
     }
   }
+
+  override def search(query: String): Future[RepositoryResult[List[JsObject]]] = {
+    dbContext.executeQuery(query) flatMap {
+      case Right(details: List[NodeDetails])=>
+        Future.sequence(details.map(d => renderNodeToJson(d, 0))) map { results =>
+          Right(results.filter(r => r.isRight).map(d => d.getOrElse(Json.obj("error" -> "Failed to render node"))))
+        }
+      case Left(t) =>
+        Future.successful(Left(t))
+    }
+  }
 }

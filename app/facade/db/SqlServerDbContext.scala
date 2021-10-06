@@ -4,6 +4,7 @@ import anorm.SqlParser.scalar
 import anorm._
 import facade.db.Model._
 import facade.db.RowParsers._
+import facade.db.Search.{QueryInterpreter, QueryParser}
 import facade.db.SqlServerDbContext.{GeneralQueries, NodeQueries}
 import facade.{FacadeConfig, LogNames}
 import play.api.cache.{NamedCache, SyncCacheApi}
@@ -16,6 +17,8 @@ import javax.inject.{Inject, Singleton}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, blocking}
 import scala.language.postfixOps
+
+import facade.db.Search.QueryParser._
 
 /**
  * Case class used to track state during recursive path resolution calls
@@ -101,7 +104,7 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
             val core = NodeQueries.nodeCoreByIdSql.on("p1" -> id).as(nodeCoreDetailsParser.single)
             val versions = NodeQueries.nodeVersionsByIdSql.on("p1" -> id).as(nodeVersionDetailsParser.*)
             val attributes = NodeQueries.nodeAttributesByIdSql.on("p1" -> id).as(nodeAttributeDetailsParser.*)
-            val details= NodeDetails(core, versions, attributes)
+            val details = NodeDetails(core, versions, attributes)
             dbCache.set(id.toString, details, facadeConfig.dbCacheLifetime)
             details
           }
@@ -298,7 +301,19 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    * @param query a query defined in terms of the grammar implemented and understood by [[QueryParser]]
    * @return an optional result containing a list of [[NodeDetails]] instances representing hits against the query
    */
-  override def executeQuery(query: String): Future[DbContextResult[List[NodeDetails]]] = ???
+  override def executeQuery(query: String): Future[DbContextResult[List[NodeDetails]]] = {
+    log.trace(s"Executing non-SQL query with input = '$query'")
+    QueryParser.apply(query) match {
+      case QueryParser.Success(clause, _) =>
+        log.trace(s"Successfully parsed non-SQL query")
+        val rawSql = QueryInterpreter.translateClauseToSQL(clause, facadeConfig.dbSchema)
+        log.trace(s"Interpreted SQL is '$rawSql'")
+        Future.successful(Right(List.empty[NodeDetails]))
+      case QueryParser.NoSuccess(msg, _) =>
+        log.trace(s"Failed to parse non-SQL query - '$msg'")
+        Future.successful(Left(new Throwable(msg)))
+    }
+  }
 }
 
 /**

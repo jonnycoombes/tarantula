@@ -76,4 +76,6 @@ trait Repository {
   def updateNodeMetaData(details: NodeDetails, meta: JsObject): Future[RepositoryResult[JsObject]]
 
 
+  def search(query : String) : Future[RepositoryResult[List[JsObject]]]
+
 }

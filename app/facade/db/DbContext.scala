@@ -1,7 +1,6 @@
 package facade.db
 
 import facade.db.Model._
-import facade.db.search.QueryParser
 
 import scala.concurrent.Future
 import scala.util.Either

@@ -1,12 +1,11 @@
 package facade.db
 
 import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
 import java.sql.PreparedStatement
 import scala.collection.immutable.TreeMap
-import scala.util.parsing.combinator.RegexParsers
-import scala.util.parsing.combinator.Parsers
+import scala.util.parsing.combinator.{Parsers, RegexParsers}
 
 object Search {
 
@@ -79,7 +78,17 @@ object Search {
      * @param comparison the comparison operator to use: [[QueryTokens.Eq]], [[QueryTokens.Gt]] etc...
      * @param value      the value to be used in the comparison
      */
-    case class Predicate(id: Identifier, comparison: Comparison, value: Value) extends Clause
+    case class Predicate(id: Identifier, comparison: Comparison, value: Value) extends Clause {
+      self =>
+      /**
+       * Compute a unique parameter name for the predicate, which can be used in order to build any generated SQL statements
+       *
+       * @return
+       */
+      def deriveBindingTag(): String = {
+        self.hashCode().toHexString
+      }
+    }
 
     /**
      * A conjunction
@@ -107,33 +116,33 @@ object Search {
     import QueryTerms._
     import QueryTokens._
 
-    val formatter = DateTimeFormat.forPattern("dd/MM/yyyy")
+    val formatter: DateTimeFormatter = DateTimeFormat.forPattern("dd/MM/yyyy")
 
     // Base rules for canonical tokens
-    def lparen = "(" ^^ { _ ⇒ LP }
+    private def lparen = "(" ^^ { _ => LP }
 
-    def rparen = ")" ^^ { _ ⇒ RP }
+    private def rparen = ")" ^^ { _ => RP }
 
-    def eq = "==" ^^ { _ ⇒ Eq }
+    private def eq = "==" ^^ { _ => Eq }
 
-    def neq = "!=" ^^ { _ ⇒ Neq }
+    private def neq = "!=" ^^ { _ => Neq }
 
-    def lt = "<" ^^ { _ ⇒ Lt }
+    private def lt = "<" ^^ { _ => Lt }
 
-    def lte = "<=" ^^ { _ ⇒ Lte }
+    private def lte = "<=" ^^ { _ => Lte }
 
-    def gt = ">" ^^ { _ ⇒ Gt }
+    private def gt = ">" ^^ { _ => Gt }
 
-    def gte = ">=" ^^ { _ ⇒ Gte }
+    private def gte = ">=" ^^ { _ => Gte }
 
     // Different idenfifier types
-    def path = """(\w|\s)+\.(\w|\s)+""".r ^^ { str ⇒ AttributePath(str.replaceAll("""\s+$""", "").split('.').toList) }
+    private def path = """(\w|\s)+\.(\w|\s)+""".r ^^ { str => AttributePath(str.replaceAll("""\s+$""", "").split('.').toList) }
 
-    def int = """-?\d+""".r ^^ { str ⇒ IntegerValue(str.toInt) }
+    private def int = """-?\d+""".r ^^ { str => IntegerValue(str.toInt) }
 
-    def string = """\'(\w|\/|\W|\s)+\'""".r ^^ { str ⇒ StringValue(str) }
+    private def string = """\'(\w|\/|\W|\s)+\'""".r ^^ { str => StringValue(str) }
 
-    def bool = ("true" | "false") ^^ { case "true" ⇒ BooleanValue(true); case "false" ⇒ BooleanValue(false) }
+    private def bool = ("true" | "false") ^^ { case "true" => BooleanValue(true); case "false" => BooleanValue(false) }
 
     /**
      * Returns a parser instance that understands how to extract a [[Value]] instance from the supplied input.  String values are treated
@@ -141,18 +150,17 @@ object Search {
      *
      * @return
      */
-    def value: Parser[Value] = (int | bool | string) ^^ {
-      case s: StringValue ⇒
-        try {
-          val dt = formatter.parseDateTime(s.value.replaceAll("\'", ""))
-          DateValue(dt)
-        }
-        catch {
-          case _: Throwable ⇒ StringValue(s.value.replaceAll("\'", ""))
-        }
-      case i: IntegerValue ⇒ i
-      case b: BooleanValue ⇒ b
-      case d: DateValue ⇒ d
+    private def value: Parser[Value] = (int | bool | string) ^^ {
+      case s: StringValue => try {
+        val dt = formatter.parseDateTime(s.value.replaceAll("\'", ""))
+        DateValue(dt)
+      }
+      catch {
+        case _: Throwable => StringValue(s.value.replaceAll("\'", ""))
+      }
+      case i: IntegerValue => i
+      case b: BooleanValue => b
+      case d: DateValue => d
     }
 
     /**
@@ -160,7 +168,7 @@ object Search {
      *
      * @return
      */
-    def comparison: Parser[Comparison] = eq | neq | lte | lt | gte | gt
+    private def comparison: Parser[Comparison] = eq | neq | lte | lt | gte | gt
 
     /**
      * Returns a parser that understands how to parse a single [[Predicate]] from the supplied input.  Essentially, this parser is a
@@ -169,8 +177,8 @@ object Search {
      *
      * @return
      */
-    def predicate: Parser[Clause] = path ~ comparison ~ value ^^ {
-      case p ~ c ~ v ⇒ Predicate(p, c, v)
+    private def predicate: Parser[Clause] = path ~ comparison ~ value ^^ {
+      case p ~ c ~ v => Predicate(p, c, v)
     }
 
     /**
@@ -179,9 +187,9 @@ object Search {
      *
      * @return
      */
-    def query: Parser[Clause] = (predicate | parens) * (
-      "&&" ^^^ { (c1: Clause, c2: Clause) ⇒ AndClause(c1, c2) } |
-        "||" ^^^ { (c1: Clause, c2: Clause) ⇒ OrClause(c1, c2) }
+    private def query: Parser[Clause] = (predicate | parens) * (
+      "&&" ^^^ { (c1: Clause, c2: Clause) => AndClause(c1, c2) } |
+        "||" ^^^ { (c1: Clause, c2: Clause) => OrClause(c1, c2) }
       )
 
     /**
@@ -189,7 +197,7 @@ object Search {
      *
      * @return
      */
-    def parens: Parser[Clause] = lparen ~> query <~ rparen
+    private def parens: Parser[Clause] = lparen ~> query <~ rparen
 
     /**
      * Just apply the [[query]] parser to a string input
@@ -197,7 +205,7 @@ object Search {
      * @param input The query to be parsed
      * @return A [[Success]] or [[NoSuccess]] depending on whether the query is valid or not
      */
-    def apply(input: String) = parseAll(query, input)
+    def apply(input: String): QueryParser.ParseResult[Clause] = parseAll(query, input)
 
     /**
      * Utility function for testing the recursive evaluation of the generated AST.
@@ -223,7 +231,7 @@ object Search {
 
     @inline private def identation(level: Int) = {
       var tabs = List[String]()
-      for (_ ← 0 to level) {
+      for (_ <- 0 to level) {
         tabs = "\t" :: tabs
       }
       tabs.mkString
@@ -257,13 +265,12 @@ object Search {
   object QueryInterpreter {
 
     import QueryTerms._
-    import QueryParser._
 
     /**
      * A lower case comparison [[Ordering]] used to lookup keys within the core fields map
      */
     private object LowerCaseOrdering extends Ordering[String] {
-      def compare(key1: String, key2: String) = key2.toLowerCase.compareTo(key1.toLowerCase)
+      def compare(key1: String, key2: String): Int = key2.toLowerCase.compareTo(key1.toLowerCase)
     }
 
     /**
@@ -283,7 +290,7 @@ object Search {
 
     private def attributePredicateToSql(predicate: Predicate, schemaPrefix: String): Option[String] = {
       val path = predicate.id.asInstanceOf[AttributePath]
-      val category = path.components(0)
+      val category = path.components.head
       val attribute = path.components(1)
       attributePredicateWhereClause(predicate) match {
         case Some(where) =>
@@ -324,17 +331,17 @@ object Search {
 
       predicate.comparison match {
         case QueryTokens.Gt =>
-          Some(s"where ${insertTypedColumn(predicate.value)} > (?)")
+          Some(s"where ${insertTypedColumn(predicate.value)} > {${predicate.deriveBindingTag()}}")
         case QueryTokens.Gte =>
-          Some(s"where ${insertTypedColumn(predicate.value)} >= (?)")
+          Some(s"where ${insertTypedColumn(predicate.value)} >= {${predicate.deriveBindingTag()}}")
         case QueryTokens.Lt =>
-          Some(s"where ${insertTypedColumn(predicate.value)} < (?)")
+          Some(s"where ${insertTypedColumn(predicate.value)} < {${predicate.deriveBindingTag()}} ")
         case QueryTokens.Lte =>
-          Some(s"where ${insertTypedColumn(predicate.value)} <= (?)")
+          Some(s"where ${insertTypedColumn(predicate.value)} <={${predicate.deriveBindingTag()}} ")
         case QueryTokens.Neq =>
-          Some(s"where ${insertTypedColumn(predicate.value)} <> (?)")
+          Some(s"where ${insertTypedColumn(predicate.value)} <> {${predicate.deriveBindingTag()}}")
         case QueryTokens.Eq =>
-          Some(s"where ${insertTypedColumn(predicate.value)} = (?)")
+          Some(s"where ${insertTypedColumn(predicate.value)} = {${predicate.deriveBindingTag()}} ")
         case _ => None
       }
     }
@@ -345,17 +352,17 @@ object Search {
      * @param predicate
      * @param index
      */
-    def addParameterValueFromPredicate(stmt: PreparedStatement, predicate: Predicate, index: Int) = {
+    def addParameterValueFromPredicate(stmt: PreparedStatement, predicate: Predicate, index: Int): Unit = {
       predicate.value match {
         case StringValue(value) => stmt.setString(index, value)
         case IntegerValue(value) => stmt.setInt(index, value)
         case DateValue(value) => stmt.setDate(index, new java.sql.Date(value.toDate.getTime))
-        case BooleanValue(value) => {
-          value match {
-            case true => stmt.setInt(index, 1)
-            case false => stmt.setInt(index, 0)
+        case BooleanValue(value) =>
+          if (value) {
+            stmt.setInt(index, 1)
+          } else {
+            stmt.setInt(index, 0)
           }
-        }
       }
     }
 
@@ -377,26 +384,47 @@ object Search {
     def corePredicateWhereClause(predicate: Predicate): Option[String] = {
 
       val column = predicate.id.asInstanceOf[AttributePath].components(1)
-      DTreeCoreFieldMappings.contains(column) match {
-        case true =>
-          predicate.comparison match {
-            case QueryTokens.Gt =>
-              Some(s"where ${DTreeCoreFieldMappings(column)} > (?)")
-            case QueryTokens.Gte =>
-              Some(s"where ${DTreeCoreFieldMappings(column)} >= (?)")
-            case QueryTokens.Lt =>
-              Some(s"where ${DTreeCoreFieldMappings(column)}< (?)")
-            case QueryTokens.Lte =>
-              Some(s"where ${DTreeCoreFieldMappings(column)} <= (?)")
-            case QueryTokens.Neq =>
-              Some(s"where ${DTreeCoreFieldMappings(column)} <> (?)")
-            case _ =>
-              Some(s"where ${DTreeCoreFieldMappings(column)} = (?)")
-          }
-        case _ => None
+      if (DTreeCoreFieldMappings.contains(column)) {
+        predicate.comparison match {
+          case QueryTokens.Gt =>
+            Some(s"where ${DTreeCoreFieldMappings(column)} > {${predicate.deriveBindingTag()}}")
+          case QueryTokens.Gte =>
+            Some(s"where ${DTreeCoreFieldMappings(column)} >= {${predicate.deriveBindingTag()}} ")
+          case QueryTokens.Lt =>
+            Some(s"where ${DTreeCoreFieldMappings(column)}< {${predicate.deriveBindingTag()}} ")
+          case QueryTokens.Lte =>
+            Some(s"where ${DTreeCoreFieldMappings(column)} <= {${predicate.deriveBindingTag()}} ")
+          case QueryTokens.Neq =>
+            Some(s"where ${DTreeCoreFieldMappings(column)} <> {${predicate.deriveBindingTag()}}  ")
+          case _ =>
+            Some(s"where ${DTreeCoreFieldMappings(column)} = {${predicate.deriveBindingTag()}} ")
+        }
+      } else {
+        None
       }
     }
 
+    def translateClauseToSQL(clause: Clause, schemaPrefix: String): String = {
+
+      def translatePredicateToSQL(predicate: Predicate): String = {
+        predicate.id.asInstanceOf[AttributePath].components.head match {
+          case "node" => corePredicateToSql(predicate, schemaPrefix).getOrElse("")
+          case _ => attributePredicateToSql(predicate, schemaPrefix).getOrElse("")
+        }
+      }
+
+      var output = ""
+      clause match {
+        case OrClause(l, r) => output += translateClauseToSQL(l, schemaPrefix)
+          output += " union "
+          output += translateClauseToSQL(r, schemaPrefix)
+        case AndClause(l, r) => output += translateClauseToSQL(l, schemaPrefix)
+          output += " intersect "
+          output += translateClauseToSQL(r, schemaPrefix)
+        case predicate@Predicate(_, _, _) => output += translatePredicateToSQL(predicate)
+      }
+      output
+    }
   }
 
 }
