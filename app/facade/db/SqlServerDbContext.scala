@@ -18,8 +18,6 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, blocking}
 import scala.language.postfixOps
 
-import facade.db.Search.QueryParser._
-
 /**
  * Case class used to track state during recursive path resolution calls
  *
@@ -303,17 +301,32 @@ class SqlServerDbContext @Inject()(configuration: Configuration,
    */
   override def executeQuery(query: String): Future[DbContextResult[List[NodeDetails]]] = {
     log.trace(s"Executing non-SQL query with input = '$query'")
-    QueryParser.apply(query) match {
-      case QueryParser.Success(clause, _) =>
-        log.trace(s"Successfully parsed non-SQL query")
-        val rawSql = QueryInterpreter.translateClauseToSQL(clause, facadeConfig.dbSchema)
-        log.trace(s"Interpreted SQL is '$rawSql'")
-        Future.successful(Right(List.empty[NodeDetails]))
-      case QueryParser.NoSuccess(msg, _) =>
-        log.trace(s"Failed to parse non-SQL query - '$msg'")
-        Future.successful(Left(new Throwable(msg)))
+    Future {
+      QueryParser.apply(query) match {
+        case QueryParser.Success(clause, _) =>
+          log.trace(s"Successfully parsed non-SQL query")
+          val rawSql = QueryInterpreter.translateClauseToSql(clause, facadeConfig.dbSchema)
+          log.trace(s"Interpreted SQL is '$rawSql'")
+          try {
+            db.withConnection { implicit c =>
+              implicit val config = facadeConfig
+              val results = QueryInterpreter.bindClauseToSql(rawSql, clause).as(nodeCoreDetailsParser.*)
+              Right(results map { result =>
+                loadNodeDetails(result.dataId)
+              })
+            }
+          } catch {
+            case t: Throwable =>
+              log.error(s"Query breakdown '${t.getMessage}")
+              Left(t)
+          }
+        case QueryParser.NoSuccess(msg, _) =>
+          log.trace(s"Failed to parse non-SQL query - '$msg'")
+          Left(new Throwable(msg))
+      }
     }
   }
+
 }
 
 /**

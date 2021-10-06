@@ -13,6 +13,9 @@ GET /index controllers.Default.notFound
 # The ping route just sends back useful information about the status of the facade
 GET /api/v1/ping    facade.controllers.PingController.ping()
 
+# Perform a search utilising the optimised SQL-based search interpreter
+GET /api/v1/search  facade.controllers.NodeController.search(query : String)
+
 # Retrieve either the meta-data associated with a given path, or the contents held at the location represented by the path
 GET /api/v1/*path   facade.controllers.NodeController.get(path: String, depth : Option[Int], content : Boolean?= false, version :Option[Long])
 

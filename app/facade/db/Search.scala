@@ -1,5 +1,6 @@
 package facade.db
 
+import anorm.{NamedParameter, SQL}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
@@ -86,7 +87,7 @@ object Search {
        * @return
        */
       def deriveBindingTag(): String = {
-        self.hashCode().toHexString
+        s"p${Math.abs(self.hashCode())}"
       }
     }
 
@@ -296,7 +297,7 @@ object Search {
         case Some(where) =>
           val sql =
             s"""
-               |      select a.DataID
+               |      select a.ParentID, a.DataID, a.VersionNum, a.Name, a.SubType, a.OriginDataID, a.CreateDate, a.ModifyDate
                |      	from $schemaPrefix.DTreeCore a inner join $schemaPrefix.LLAttrData b on a.DataID = b.ID
                |          and a.VersionNum = b.VerNum
                |      	inner join
@@ -371,7 +372,7 @@ object Search {
         case Some(where) =>
           val sql =
             s"""
-               |select a.DataID
+               |select a.ParentID, a.DataID, a.VersionNum, a.Name, a.SubType, a.OriginDataID, a.CreateDate, a.ModifyDate
                |  from $schemaPrefix.DTreeCore a
                |   $where and a.Deleted = 0
                |""".stripMargin
@@ -404,27 +405,59 @@ object Search {
       }
     }
 
-    def translateClauseToSQL(clause: Clause, schemaPrefix: String): String = {
-
-      def translatePredicateToSQL(predicate: Predicate): String = {
-        predicate.id.asInstanceOf[AttributePath].components.head match {
-          case "node" => corePredicateToSql(predicate, schemaPrefix).getOrElse("")
-          case _ => attributePredicateToSql(predicate, schemaPrefix).getOrElse("")
-        }
+    @inline private def translatePredicateToSql(predicate: Predicate, schemaPrefix : String): String = {
+      predicate.id.asInstanceOf[AttributePath].components.head match {
+        case "node" => corePredicateToSql(predicate, schemaPrefix).getOrElse("")
+        case _ => attributePredicateToSql(predicate, schemaPrefix).getOrElse("")
       }
+    }
 
+    def translateClauseToSql(clause: Clause, schemaPrefix: String): String = {
       var output = ""
       clause match {
-        case OrClause(l, r) => output += translateClauseToSQL(l, schemaPrefix)
+        case OrClause(l, r) => output += translateClauseToSql(l, schemaPrefix)
           output += " union "
-          output += translateClauseToSQL(r, schemaPrefix)
-        case AndClause(l, r) => output += translateClauseToSQL(l, schemaPrefix)
+          output += translateClauseToSql(r, schemaPrefix)
+        case AndClause(l, r) => output += translateClauseToSql(l, schemaPrefix)
           output += " intersect "
-          output += translateClauseToSQL(r, schemaPrefix)
-        case predicate@Predicate(_, _, _) => output += translatePredicateToSQL(predicate)
+          output += translateClauseToSql(r, schemaPrefix)
+        case predicate@Predicate(_, _, _) => output += translatePredicateToSql(predicate, schemaPrefix)
       }
       output
     }
+
+    def bindClauseToSql(rawSql: String, clause: Clause) = {
+      val predicates = flattenPredicates(List.empty, clause)
+      val params = predicates.map(bindPredicate(_))
+      SQL(rawSql).on(params: _*)
+    }
+
+    def bindPredicate(predicate: Predicate): NamedParameter = {
+      predicate.value match {
+        case StringValue(s) => NamedParameter(predicate.deriveBindingTag(), s)
+        case IntegerValue(i) => NamedParameter(predicate.deriveBindingTag(), i)
+        case DateValue(d) => NamedParameter(predicate.deriveBindingTag(), d.toDate)
+        case BooleanValue(b) =>
+          if (b) {
+            NamedParameter(predicate.deriveBindingTag(), 1)
+          } else {
+            NamedParameter(predicate.deriveBindingTag(), 0)
+          }
+      }
+    }
+
+    def flattenPredicates(accum: List[Predicate], clause: Clause): List[Predicate] = {
+      clause match {
+        case OrClause(l, r) =>
+          flattenPredicates(accum, l) ++ flattenPredicates(accum, r)
+        case AndClause(l, r) =>
+          flattenPredicates(accum, l) ++ flattenPredicates(accum, r)
+        case predicate@Predicate(_, _, _) =>
+          predicate :: accum
+      }
+    }
+
   }
+
 
 }

@@ -3,7 +3,7 @@ package facade.controllers
 import akka.actor.ActorSystem
 import facade.repository._
 import facade.{FacadeConfig, LogNames}
-import play.api.libs.json.{JsObject, JsString, Json}
+import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents, MultipartFormData}
 import play.api.{Configuration, Logger}
 import play.api.libs.Files
@@ -44,6 +44,20 @@ class NodeController @Inject()(val cc: ControllerComponents,
     } else {
       log.trace("New meta-data retrieval request accepted")
       retrieveMetaData(path, depth.getOrElse(facadeConfig.defaultTreeTraversalDepth))
+    }
+  }
+
+  /**
+   * Performs a search against the underlying repository, utilising the optimised SQL-based search interpreter
+   * @param query a query conforming to the grammar defined within the [[facade.db.Search.QueryParser]] module
+   * @return a [[List[JsObject]] instance containing the results of the search (if any)
+   */
+  def search(query : String) : Action[AnyContent] = Action.async {
+    Future.successful(Ok(ResponseHelpers.success(JsString("You requested a search"))))
+    repository.search(query) map {
+      case Right(results) =>
+        Ok(ResponseHelpers.success(results.foldRight(JsArray())((o, arr) => arr.append(o))))
+      case Left(t) => Ok(ResponseHelpers.throwableFailure(t))
     }
   }
 
