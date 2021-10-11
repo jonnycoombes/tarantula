@@ -4,7 +4,6 @@ import anorm.{NamedParameter, SQL}
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
-import java.sql.PreparedStatement
 import scala.collection.immutable.TreeMap
 import scala.util.parsing.combinator.{Parsers, RegexParsers}
 
@@ -230,6 +229,11 @@ object Search {
 
     }
 
+    /**
+     * Utility function for padding out an indentation level
+     * @param level
+     * @return
+     */
     @inline private def identation(level: Int) = {
       var tabs = List[String]()
       for (_ <- 0 to level) {
@@ -238,6 +242,12 @@ object Search {
       tabs.mkString
     }
 
+    /**
+     * Pretty prints a parsed query to a string
+     * @param query the [[Clause]] to print
+     * @param level the level of indentation to apply
+     * @return
+     */
     def prettyPrintToString(query: Clause, level: Int): String = {
 
       var output = ""
@@ -289,6 +299,13 @@ object Search {
       "subType" -> "SubType"
     )(LowerCaseOrdering)
 
+    /**
+     * Takes a [[Predicate]] which involves a category.attribute pair and generates the equivalent SQL used to satisfy the predicate
+     * within the database
+     * @param predicate the source [[Predicate]] - should be a predicate with an id in the form category.attribute
+     * @param schemaPrefix the schema prefix to apply to the generated SQL
+     * @return
+     */
     private def attributePredicateToSql(predicate: Predicate, schemaPrefix: String): Option[String] = {
       val path = predicate.id.asInstanceOf[AttributePath]
       val category = path.components.head
@@ -317,7 +334,11 @@ object Search {
       }
     }
 
-
+    /**
+     * Maps the where clause within a predicate SQL statement to the correct column within the underlying SQL view structure
+     * @param predicate the [[Predicate]]
+     * @return
+     */
     def attributePredicateWhereClause(predicate: Predicate): Option[String] = {
 
       def insertTypedColumn(value: QueryTerms.Value) = {
@@ -347,26 +368,13 @@ object Search {
       }
     }
 
+
     /**
      *
-     * @param stmt
      * @param predicate
-     * @param index
+     * @param schemaPrefix
+     * @return
      */
-    def addParameterValueFromPredicate(stmt: PreparedStatement, predicate: Predicate, index: Int): Unit = {
-      predicate.value match {
-        case StringValue(value) => stmt.setString(index, value)
-        case IntegerValue(value) => stmt.setInt(index, value)
-        case DateValue(value) => stmt.setDate(index, new java.sql.Date(value.toDate.getTime))
-        case BooleanValue(value) =>
-          if (value) {
-            stmt.setInt(index, 1)
-          } else {
-            stmt.setInt(index, 0)
-          }
-      }
-    }
-
     def corePredicateToSql(predicate: Predicate, schemaPrefix: String): Option[String] = {
       corePredicateWhereClause(predicate) match {
         case Some(where) =>
