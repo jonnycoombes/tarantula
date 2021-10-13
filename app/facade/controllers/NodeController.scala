@@ -1,10 +1,15 @@
 package facade.controllers
 
 import akka.actor.ActorSystem
+import akka.stream.javadsl.Source
+import akka.stream.{IOResult, scaladsl}
+import akka.stream.scaladsl.FileIO
+import akka.util.ByteString
 import facade.repository._
 import facade.{FacadeConfig, LogNames}
+import play.api.http.HttpEntity
 import play.api.libs.json.{JsArray, JsObject, JsString, Json}
-import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents, MultipartFormData}
+import play.api.mvc.{AbstractController, Action, AnyContent, ControllerComponents, MultipartFormData, ResponseHeader, Result}
 import play.api.{Configuration, Logger}
 import play.api.libs.Files
 
@@ -146,10 +151,11 @@ class NodeController @Inject()(val cc: ControllerComponents,
       case Right(details) =>
         repository.retrieveNodeContent(details, version) map {
           case Right(info) =>
-            Ok.sendFile(
-              content = info.file,
-              inline = false,
-            ).withHeaders("Content-Type" -> info.contentType)
+            val source : scaladsl.Source[ByteString, Future[IOResult]]=  FileIO.fromPath(info.file.toPath)
+            Result(
+              header = ResponseHeader(200, Map.empty),
+              body = HttpEntity.Streamed(source, Some(info.length), Some(info.contentType))
+            )
           case Left(t) =>
             Ok(ResponseHelpers.failure(JsString(t.getMessage)))
         }
