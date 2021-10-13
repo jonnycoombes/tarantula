@@ -4,7 +4,14 @@ This is the revised and upgraded version of the CS16 REST facade, deployed and u
 represents a significant upgrade to the original Facade built in 2017 and contains a number of performance, functionality and stability
 improvements.
 
-___
+## Version Information
+The shipping versions for the revised facade are as follows:
+
+| Version | Date | Notes |
+|---------|------|-------|
+| 2.0.0   |10/10/2021| Initial tested version - deployed to Discovery pre-prod on 11/10/2021|
+| 2.0.1   | ??? | To include Swagger/OpenAPI built in specification to allow for more generic integration within Discovery|
+
 
 ## __Build Environment__
 
@@ -19,8 +26,6 @@ The baseline build and deployment environment for this version of the facade is 
 | JRE       | 11.0.12
 
 
-___
-
 ## __Supported Environments__
 
 This version of the facade has built-in support for version 16.2.x of OpenText Content Server. This version of the facade will not be
@@ -30,7 +35,6 @@ The facade as built assumes an underlying OTCS schema hosted on SQL Server or SQ
 
 The facade may be hosted on any platform supporting the underlying JRE. (It is tested against Windows, Linux & OSX by default).
 
-___
 
 ## __Design Objectives__
 
@@ -44,7 +48,6 @@ The key design objectives for the revised version of the facade are listed below
 * Simplfiication of the facade configuration - default to "by convention" approach rather than explicit configuration.
 * Self scaffolding of any supporting SQL elements.
 
-___
 
 ## __Implementation Notes__
 
@@ -67,6 +70,8 @@ As far as possible, this version of the Facade attempts to retain functional com
 areas (largely for simplification reasons) a number of functional changes have been made.  These are detailed below.
 
 #### __Ping returns more sensible information__
+Within version 2.0 of the facade, the ping request has been enhanced so that it now returns a variety of information relating to the health of the underlying 
+OTCS instance, database and facade itself.
 
 
 #### __Metadata is always returned for nodes__
