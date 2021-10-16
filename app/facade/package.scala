@@ -40,6 +40,11 @@ package object facade {
      */
     lazy val TimingsLogger = "facade-timings"
 
+    /**
+     * A dedicated log for the WSP notification actor
+     */
+    lazy val NotificationLogger = "facade-notifications"
+
   }
 
   /**
@@ -101,6 +106,11 @@ package object facade {
      * The default database schema to use
      */
     lazy val DefaultDbSchema = "dbo"
+
+    /**
+     * The default notification endpoint - used really for development
+     */
+    lazy val DefaultNotificationEndpoint = "http://localhost:9995"
   }
 
   /**
@@ -119,7 +129,8 @@ package object facade {
                           defaultTreeTraversalDepth: Int,
                           maximumTreeTraversalDepth: Int,
                           pingToken : Boolean,
-                          dbSchema: String)
+                          dbSchema: String,
+                          notificationEndpoint : String)
 
   /**
    * Companion object for the [[FacadeConfig]] case class. Includes an apply method which allows a configuration to be derived from a
@@ -154,7 +165,8 @@ package object facade {
         maximumTreeTraversalDepth = config.getOptional[Int]("facade.maximum.traversal.depth").getOrElse(SystemConstants
           .MaximumTreeTraversalDepth),
         pingToken = config.getOptional[Boolean]("facade.ping.token").getOrElse(false),
-        dbSchema = config.getOptional[String]("facade.db.schema").getOrElse(SystemConstants.DefaultDbSchema)
+        dbSchema = config.getOptional[String]("facade.db.schema").getOrElse(SystemConstants.DefaultDbSchema),
+        notificationEndpoint = config.getOptional[String]("facade.notification.endpoint").getOrElse(SystemConstants.DefaultNotificationEndpoint)
       )
     }
   }

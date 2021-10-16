@@ -1,5 +1,6 @@
 package facade.repository
 
+import akka.actor.ActorSystem
 import facade._
 import facade.cws.{CwsProxy, DownloadedContent}
 import facade.db.DbContext
@@ -33,6 +34,7 @@ import scala.concurrent.Future
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
+                                  system : ActorSystem,
                                   @NamedCache("json-cache") jsonCache: SyncCacheApi,
                                   dbContext: DbContext,
                                   cwsProxy: CwsProxy,
