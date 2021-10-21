@@ -113,7 +113,7 @@ class NodeController @Inject()(val cc: ControllerComponents,
           val resolvedPathFuture = repository.resolvePath(path.split('/').toList)
           resolvedPathFuture flatMap {
             case Right(details) =>
-              repository.uploadContent(details, meta, file.filename, file.ref.path, file.fileSize) map {
+              repository.uploadContent(details, meta,path, file.filename, file.ref.path, file.fileSize) map {
                 case Right(rendition) =>
                   Ok(ResponseHelpers.success(rendition))
                 case Left(t) =>

@@ -1,13 +1,16 @@
 package facade.repository
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, PoisonPill}
 import facade._
+import facade.actors.NotificationActor
+import facade.actors.NotificationActor.WSP.NotifyWSP
 import facade.cws.{CwsProxy, DownloadedContent}
 import facade.db.DbContext
 import facade.db.Model._
 import play.api.cache.{NamedCache, SyncCacheApi}
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsArray, JsObject, Json}
+import play.api.libs.ws.WSClient
 import play.api.{Configuration, Logger}
 
 import java.net.URLDecoder
@@ -34,7 +37,8 @@ import scala.concurrent.Future
 @Singleton
 class DefaultRepository @Inject()(configuration: Configuration,
                                   lifecycle: ApplicationLifecycle,
-                                  system : ActorSystem,
+                                  ws: WSClient,
+                                  system: ActorSystem,
                                   @NamedCache("json-cache") jsonCache: SyncCacheApi,
                                   dbContext: DbContext,
                                   cwsProxy: CwsProxy,
@@ -51,11 +55,20 @@ class DefaultRepository @Inject()(configuration: Configuration,
    */
   private val facadeConfig = FacadeConfig(configuration)
 
+  /**
+   * The [[NotificationActor]] to be used in order to generate notification messages for WSP
+   * Note that this functionality is non-generic, and specific to Discovery
+   */
+  private val notificationActor = system.actorOf(NotificationActor.props(ws))
+
+
   log.debug("Initialising repository")
 
   lifecycle.addStopHook { () =>
     Future.successful({
-      log.debug("Repository stop hook called")
+      log.debug("Default repository stop hook called")
+      log.trace("Issuing poison pill to notification actor")
+      notificationActor ! PoisonPill
     })
   }
 
@@ -80,7 +93,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
       if (serverInfo.isRight && schemaVersion.isRight) {
         if (facadeConfig.pingToken) {
           RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get, cwsProxy.resolveToken())
-        }else{
+        } else {
           RepositoryState(facadeConfig, serverInfo.toOption.get, schemaVersion.toOption.get)
         }
       } else if (serverInfo.isRight && schemaVersion.isLeft) {
@@ -174,7 +187,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
     log.trace(s"Rendering $details at depth=$depth")
     import facade.db.JsonWriters._
 
-    val rendition= jsonCache.get[JsObject](details.core.dataId.toString) match {
+    val rendition = jsonCache.get[JsObject](details.core.dataId.toString) match {
       case Some(json) =>
         log.trace(s"Json cache *hit* for id=${details.core.dataId}")
         json
@@ -214,10 +227,12 @@ class DefaultRepository @Inject()(configuration: Configuration,
    * @param size          the size of content to upload
    * @return
    */
-  override def uploadContent(parentDetails: NodeDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
+  override def uploadContent(parentDetails: NodeDetails, meta: Option[JsObject], path: String, filename: String, source: Path, size: Long)
   : Future[RepositoryResult[JsObject]] = {
     cwsProxy.uploadNodeContent(parentDetails.core.dataId, meta, filename, source, size) flatMap {
       case Right(node) =>
+        log.trace("Dispatching notification")
+        system.actorOf(NotificationActor.props(ws)) ! NotifyWSP(ws, path, node, facadeConfig)
         dbContext.queryNodeDetailsById(node.getID) flatMap {
           case Right(details) =>
             renderNodeToJson(details, 0)
@@ -256,7 +271,7 @@ class DefaultRepository @Inject()(configuration: Configuration,
 
   override def search(query: String): Future[RepositoryResult[List[JsObject]]] = {
     dbContext.executeQuery(query) flatMap {
-      case Right(details: List[NodeDetails])=>
+      case Right(details: List[NodeDetails]) =>
         Future.sequence(details.map(d => renderNodeToJson(d, 0))) map { results =>
           Right(results.filter(r => r.isRight).map(d => d.getOrElse(Json.obj("error" -> "Failed to render node"))))
         }

@@ -63,7 +63,7 @@ trait Repository {
    * @param size          the size of content to upload
    * @return
    */
-  def uploadContent(parentDetails: NodeDetails, meta: Option[JsObject], filename: String, source: Path, size: Long)
+  def uploadContent(parentDetails: NodeDetails, meta: Option[JsObject], path: String, filename: String, source: Path, size: Long)
   : Future[RepositoryResult[JsObject]]
 
   /**
