@@ -1,16 +1,14 @@
 # __Facade Redux__
 
-This is the revised and upgraded version of the CS16 REST facade, deployed and used by Discovery Bank in Johannesburg, amongst others. This
-represents a significant upgrade to the original Facade built in 2017 and contains a number of performance, functionality and stability
-improvements.
+This is a simplified, Scala-based REST facade for OTCS 16.
 
 ## Version Information
 The shipping versions for the revised facade are as follows:
 
 | Version | Date | Notes |
 |---------|------|-------|
-| 2.0.0   |10/10/2021| Initial tested version - deployed to Discovery pre-prod on 11/10/2021|
-| 2.0.1   | 15/10/2021 | To include Swagger/OpenAPI built in specification to allow for more generic integration within Discovery|
+| 2.0.0   |10/10/2021| Initial tested version |
+| 2.0.1   | 15/10/2021 | To include Swagger/OpenAPI |
 
 
 ## __Build Environment__
